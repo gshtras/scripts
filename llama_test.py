@@ -3,10 +3,12 @@ import time
 
 def main():
     llm = LLM(
-        '/models/models--mistralai--Mixtral-8x22B-Instruct-v0.1/snapshots/1702b01b7da3a85dbf608a83595541ba22294625/',
+        #'/models/models--mistralai--Mixtral-8x22B-Instruct-v0.1/snapshots/1702b01b7da3a85dbf608a83595541ba22294625/',
+        #'/models/Meta-Llama-3.1-8B',
+        '/models/mistral_ai/Mixtral-8x22B-v0.1',
         tensor_parallel_size=2,
         #quantization="serenity",
-        dtype='float16',
+        #dtype='float16',
         #swap_space=16,
         #enforce_eager=True,
         #kv_cache_dtype="fp8",
@@ -16,9 +18,9 @@ def main():
         #trust_remote_code=True,
         distributed_executor_backend="mp",
     )
-    batch_size = 2
+    batch_size = 5
     max_tokens = 256
-    prompt = """Her name is"""
+    prompt = """There is a round table in the middle of the"""
     sampling_params = SamplingParams(temperature=0,
                                      top_p=0.95,
                                      max_tokens=max_tokens)
