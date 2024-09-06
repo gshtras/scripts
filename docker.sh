@@ -58,6 +58,7 @@ if [[ $dry_run != 1 ]] ; then
 tmux rename-window "Docker:$name"
 docker run -it --rm --device=/dev/kfd --device=/dev/dri --mount type=bind,source=/home/gshtrasb/Projects,target=/projects --mount type=bind,source=/data/models,target=/models --group-add video --cap-add=SYS_PTRACE $name_arg $image
 tmux rename-window "zsh"
+echo "Finished docker image $image"
 else
 echo "docker run -it --rm --device=/dev/kfd --device=/dev/dri --mount type=bind,source=/home/gshtrasb/Projects,target=/projects --mount type=bind,source=/data/models,target=/models --group-add video --cap-add=SYS_PTRACE $name_arg $image"
 fi
