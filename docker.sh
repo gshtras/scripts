@@ -4,7 +4,9 @@ dry_run=0
 interactive=0
 grep_value=
 
-for i in "$@"; do
+while [[ $# -gt 0 ]] ; do
+  i=$1
+  echo $i
   case $i in
   -n|--name)
     name="$2"
