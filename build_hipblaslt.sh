@@ -5,7 +5,8 @@ cd hipBLAS-common
 mkdir build
 cd build
 cmake ..
-make package install
+make package
+dpkg -i ./*.deb
 cd ../..
 
 git clone https://github.com/ROCm/hipBLASLt
