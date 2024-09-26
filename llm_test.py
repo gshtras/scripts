@@ -152,7 +152,7 @@ if __name__ == "__main__":
                         choices=values["dtype"])
     parser.add_argument('--quantization',
                         type=str,
-                        default='None',
+                        default=None,
                         choices=values["quantization"])
     args = parser.parse_args()
 
