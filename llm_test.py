@@ -20,6 +20,7 @@ class LlmKwargs(dict):
         self.kwargs['tensor_parallel_size'] = args.tensor_parallel_size
         self.kwargs['dtype'] = args.dtype
         self.kwargs['quantization'] = args.quantization
+        self.kwargs['enforce_eager'] = args.enforce_eager
         self.prompt = args.prompt
         self.batch_size = args.batch_size
         self.max_tokens = args.max_tokens
@@ -74,6 +75,7 @@ values = {
     "tensor_parallel_size": [1, 2, 4, 8],
     "dtype": ["auto", "float16", "bfloat16"],
     "quantization": ["None", "fp8", "compressed-tensors", "fbgemm-fp8"],
+    "enforce_eager": [True, False],
     "prompt": select_prompt,
     "batch_size": select_batch_size,
     "max_tokens": select_max_tokens,
@@ -82,7 +84,7 @@ values = {
 
 
 def menu(items):
-    terminal_menu = TerminalMenu(items)
+    terminal_menu = TerminalMenu([str(x) for x in items])
     menu_entry_index = terminal_menu.show()
     if menu_entry_index is None:
         print("Abroted")
@@ -100,7 +102,7 @@ def interactive(llm_kwargs: LlmKwargs):
         if callable(value):
             value(llm_kwargs)
         elif isinstance(value, list):
-            new_value = value[menu(value)]
+            new_value = type(value[0])(value[menu(value)])
             if new_value == 'None':
                 new_value = None
             llm_kwargs[key] = new_value
@@ -166,6 +168,7 @@ if __name__ == "__main__":
     parser.add_argument('--prompt', type=str, default="There is a round table in the middle of the")
     parser.add_argument('--batch-size', type=int, default=1)
     parser.add_argument('--max-tokens', type=int, default=256)
+    parser.add_argument('--enforce-eager', action='store_true')
     args = parser.parse_args()
 
     main(args)
