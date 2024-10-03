@@ -20,6 +20,9 @@ class LlmKwargs(dict):
         self.kwargs['tensor_parallel_size'] = args.tensor_parallel_size
         self.kwargs['dtype'] = args.dtype
         self.kwargs['quantization'] = args.quantization
+        self.prompt = args.prompt
+        self.batch_size = args.batch_size
+        self.max_tokens = args.max_tokens
 
     def __setitem__(self, key: str, value: str) -> None:
         self.kwargs[key] = value
@@ -35,6 +38,7 @@ class LlmKwargs(dict):
         res += "\n Sampling params: \n"
         res += f"Prompt: {self.prompt}\n"
         res += f"Batch size: {self.batch_size}\n"
+        res += f"Max tokens: {self.max_tokens}\n"
         return res
 
 
@@ -159,6 +163,8 @@ if __name__ == "__main__":
                         type=str,
                         default=None,
                         choices=values["quantization"])
+    parser.add_argument('--prompt', type=str, default="There is a round table in the middle of the")
+    parser.add_argument('--batch-size', type=int, default=1)
     parser.add_argument('--max-tokens', type=int, default=256)
     args = parser.parse_args()
 
