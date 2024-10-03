@@ -11,6 +11,7 @@ class LlmKwargs(dict):
     def __init__(self):
         self.kwargs = {}
         self.batch_size = 1
+        self.max_tokens = 256
         self.prompt = "There is a round table in the middle of the"
 
     def from_args(self, args: argparse.Namespace):
@@ -59,6 +60,9 @@ def select_prompt(llm_kwargs: LlmKwargs):
 def select_batch_size(llm_kwargs: LlmKwargs):
     llm_kwargs.batch_size = int(input("Enter a batch size: "))
 
+def select_max_tokens(llm_kwargs: LlmKwargs):
+    llm_kwargs.max_tokens = int(input("Enter max tokens: "))
+
 
 values = {
     "model": select_model,
@@ -68,6 +72,7 @@ values = {
     "quantization": ["None", "fp8", "compressed-tensors", "fbgemm-fp8"],
     "prompt": select_prompt,
     "batch_size": select_batch_size,
+    "max_tokens": select_max_tokens,
     "Done": None
 }
 
@@ -107,7 +112,7 @@ def main(args: argparse.Namespace):
 
     batch_size = llm_args.batch_size
     llm = LLM(**llm_args.kwargs)
-    sampling_params = SamplingParams(temperature=0, top_p=1, max_tokens=256)
+    sampling_params = SamplingParams(temperature=0, top_p=1, max_tokens=llm_args.max_tokens)
     start_time = time.perf_counter()
     outs = llm.generate([llm_args.prompt] * batch_size,
                         sampling_params=sampling_params)
@@ -154,6 +159,7 @@ if __name__ == "__main__":
                         type=str,
                         default=None,
                         choices=values["quantization"])
+    parser.add_argument('--max-tokens', type=int, default=256)
     args = parser.parse_args()
 
     main(args)
