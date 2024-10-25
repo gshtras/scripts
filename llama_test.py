@@ -1,32 +1,31 @@
 from vllm import LLM, SamplingParams
 import time
+from PIL import Image
 
 def main():
     llm = LLM(
-        #'/models/models--mistralai--Mixtral-8x22B-Instruct-v0.1/snapshots/1702b01b7da3a85dbf608a83595541ba22294625/',
-        #'/models/Meta-Llama-3.1-8B',
-        '/models/mistral_ai/Mixtral-8x22B-v0.1',
-        tensor_parallel_size=2,
-        #quantization="serenity",
-        #dtype='float16',
-        #swap_space=16,
+        #'/models/Llama-3.2-11B-Vision-Instruct-FP8-KV',
+        '/models/Llama-3.2-90B-Vision-Instruct',
+        tensor_parallel_size=4,
+        #quantization="fp8",
         #enforce_eager=True,
         #kv_cache_dtype="fp8",
-        #quantization="fp8",
-        #quantized_weights_path="/quantized/quark/llama.safetensors",
-        #worker_use_ray=True,
-        #trust_remote_code=True,
-        distributed_executor_backend="mp",
     )
-    batch_size = 5
+    batch_size = 1
     max_tokens = 256
-    prompt = """There is a round table in the middle of the"""
+    prompt = f"<|image|><|begin_of_text|>Describe image in two sentences"
+
     sampling_params = SamplingParams(temperature=0,
-                                     top_p=0.95,
+                                     top_p=1,
                                      max_tokens=max_tokens)
 
     start_time = time.perf_counter()
-    outs = llm.generate([prompt] * batch_size, sampling_params=sampling_params)
+    image = Image.open("/projects/image1.jpg") \
+            .convert("RGB")
+
+    inputs = {"prompt": prompt, "multi_modal_data": {"image": image}},
+
+    outs = llm.generate(inputs, sampling_params=sampling_params)
     end_time = time.perf_counter()
     elapsed_time = end_time - start_time
 
