@@ -10,6 +10,7 @@ cp ~/Projects/docker_bundle.tgz bundle.tgz
 docker build -f Dockerfile.vllm \
     --build-arg "UID=$(id -u)" \
     --build-arg "GID=$(id -g)" \
+    --build-arg "USERNAME=$(whoami)" \
     --build-arg "RENDER_GID=$(cat /etc/group | grep render | cut -d: -f3)" \
     --build-arg "PYTORCH_ROCM_ARCH=$(/opt/rocm/bin/offload-arch)" \
     -t greg_vllm .

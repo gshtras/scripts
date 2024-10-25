@@ -3,25 +3,26 @@ FROM rocm/vllm-dev:20241023
 ARG UID
 ARG GID
 ARG RENDER_GID
+ARG USERNAME
 ARG PYTORCH_ROCM_ARCH=gfx942
 
-RUN addgroup --gid $GID gshtrasb
+RUN addgroup --gid $GID $USERNAME
 RUN grep render:x /etc/group && perl -p -i -e "s/^render:x:[0-9]+/render:x:${RENDER_GID}/g" /etc/group || echo
 RUN grep render:x:$RENDER_GID /etc/group || addgroup --gid $RENDER_GID render
-RUN adduser --disabled-password --gid $GID --uid $UID --gecos '' gshtrasb
-RUN adduser gshtrasb sudo
-RUN adduser gshtrasb render
-RUN echo 'gshtrasb    ALL=(ALL:ALL) NOPASSWD:ALL' > /etc/sudoers.d/gshtrasb
+RUN adduser --disabled-password --gid $GID --uid $UID --gecos '' $USERNAME
+RUN adduser $USERNAME sudo
+RUN adduser $USERNAME render
+RUN echo "$USERNAME    ALL=(ALL:ALL) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME
 RUN rm -f $(which sccache)
 
-USER gshtrasb
-COPY bundle.tgz /home/gshtrasb/bundle.tgz
+USER $USERNAME
+COPY bundle.tgz /home/$USERNAME/bundle.tgz
 RUN sudo apt update && sudo apt install -y zsh less curl bc psmisc htop && \
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && \
     cd $HOME && tar xf bundle.tgz
-COPY requirements-lint.txt /home/gshtrasb
-RUN pip install -r /home/gshtrasb/requirements-lint.txt && pip install simple_term_menu
+COPY requirements-lint.txt /home/$USERNAME
+RUN pip install -r /home/$USERNAME/requirements-lint.txt && pip install simple_term_menu
 ENV PYTORCH_ROCM_ARCH=${PYTORCH_ROCM_ARCH}
 
-COPY Dockerfile.vllm /home/gshtrasb/
+COPY Dockerfile.vllm /home/$USERNAME/
 CMD ["/usr/bin/zsh"]
