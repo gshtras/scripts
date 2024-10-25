@@ -30,10 +30,19 @@ class LlmKwargs(dict):
                                               top_p=1,
                                               max_tokens=args.max_tokens,
                                               ignore_eos=args.ignore_eos)
-        self.prompt = "There is a round table in the middle of the"
+        self.rpd = args.rpd
+        self.rpd_path = envs.VLLM_RPD_PROFILER_DIR
+        if self.rpd_path is None:
+            self.rpd_path = args.rpd_path or os.path.join(
+                os.path.curdir, "trace.rpd")
 
     def __setitem__(self, key: str, value: str) -> None:
         self.kwargs[key] = value
+
+    def set_rpd(self, value: str):
+        self.rpd = value
+        if self.rpd and self.rpd_path is None:
+            self.rpd_path = os.path.join(os.path.curdir, "trace.rpd")
 
     def __str__(self) -> str:
         res = "===================\n"
@@ -43,6 +52,7 @@ class LlmKwargs(dict):
         res += "\n Misc: \n"
         res += f"Prompt: {self.prompt}\n"
         res += f"Batch size: {self.batch_size}\n"
+        res += f"RPD: {self.rpd}: {self.rpd_path}\n"
         return res
 
 
@@ -86,6 +96,14 @@ def select_ignore_eos(llm_kwargs: LlmKwargs):
     llm_kwargs.sampling_params.ignore_eos = [False, True][menu([False, True])]
 
 
+def select_rpd(llm_kwargs: LlmKwargs):
+    llm_kwargs.set_rpd([False, True][menu([False, True])])
+
+
+def select_rpd_path(llm_kwargs: LlmKwargs):
+    llm_kwargs.rpd_path = input("Enter RPD path: ")
+
+
 values = {
     "model": select_model,
     "kv_cache_dtype": ["auto", "fp8"],
@@ -99,6 +117,8 @@ values = {
     "input_len": select_input_len,
     "temperature": select_temperature,
     "ignore_eos": select_ignore_eos,
+    "rpd": select_rpd,
+    "rpd_path": select_rpd_path,
     "Done": None
 }
 
@@ -129,16 +149,16 @@ def interactive(llm_kwargs: LlmKwargs):
         print(llm_kwargs)
 
 
-def recreate_trace(args: argparse.Namespace):
+def recreate_trace(llm_args: LlmKwargs):
     from rocpd.schema import RocpdSchema
-    if envs.VLLM_RPD_PROFILER_DIR is None:
-        envs.VLLM_RPD_PROFILER_DIR = os.path.join(os.path.curdir, "trace.rpd")
+    if envs.VLLM_RPD_PROFILER_DIR != llm_args.rpd_path:
+        envs.VLLM_RPD_PROFILER_DIR = llm_args.rpd_path
     try:
-        os.remove(envs.VLLM_RPD_PROFILER_DIR)
+        os.remove(llm_args.rpd_path)
     except FileNotFoundError:
         pass
     schema = RocpdSchema()
-    connection = sqlite3.connect(envs.VLLM_RPD_PROFILER_DIR)
+    connection = sqlite3.connect(llm_args.rpd_path)
     schema.writeSchema(connection)
     connection.commit()
 
@@ -160,8 +180,8 @@ def main(args: argparse.Namespace):
 
     batch_size = llm_args.batch_size
 
-    if args.rpd:
-        recreate_trace(args)
+    if llm_args.rpd:
+        recreate_trace(llm_args)
 
     llm = LLM(**llm_args.kwargs)
 
@@ -225,6 +245,7 @@ if __name__ == "__main__":
     parser.add_argument('--input-len', type=int, default=-1)
     parser.add_argument('--temperature', type=float, default=0)
     parser.add_argument('--ignore-eos', action='store_true')
+    parser.add_argument('--rpd-path', type=str, default=None)
     args = parser.parse_args()
 
     main(args)
