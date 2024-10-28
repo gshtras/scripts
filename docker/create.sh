@@ -18,6 +18,6 @@ docker build -f Dockerfile.vllm \
     --build-arg "USERNAME=$(whoami)" \
     --build-arg "RENDER_GID=$(cat /etc/group | grep render | cut -d: -f3)" \
     --build-arg "PYTORCH_ROCM_ARCH=$(/opt/rocm/bin/offload-arch)" \
-    -t greg_vllm .
+    -t ${USER}_vllm .
 
 rm -f requirements-lint.txt bundle.tgz
