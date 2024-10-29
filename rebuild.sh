@@ -11,9 +11,5 @@ pip uninstall -y vllm
 rm -rf build
 find . -name "*.so" -exec rm -f {} \;
 rm -rf .cache
-prefix_arg=
-if [[ $(whoami) == "gshtrasb" ]] ; then
-    prefix_arg=" --prefix ~/.local"
-fi
-python setup.py develop ${prefix_arg}
 
+build.sh
