@@ -37,6 +37,7 @@ class LlmKwargs(dict):
             self.rpd_path = args.rpd_path or os.path.join(
                 os.path.curdir, "trace.rpd")
         self.image_path = args.image_path
+        self.serverlike = args.serverlike
 
     def __setitem__(self, key: str, value: str) -> None:
         self.kwargs[key] = value
@@ -111,6 +112,10 @@ def select_image_path(llm_kwargs: LlmKwargs):
     llm_kwargs.image_path = input("Enter image path: ")
 
 
+def select_serverlike(llm_kwargs: LlmKwargs):
+    llm_kwargs.serverlike = [False, True][menu([False, True])]
+
+
 values = {
     "model": select_model,
     "kv_cache_dtype": ["auto", "fp8"],
@@ -127,6 +132,7 @@ values = {
     "rpd": select_rpd,
     "rpd_path": select_rpd_path,
     "image_path": select_image_path,
+    "serverlike": select_serverlike,
     "Done": None
 }
 
@@ -206,22 +212,40 @@ def main(args: argparse.Namespace):
             }
         }
 
+    num_tokens = 0
     start_time = time.perf_counter()
+    outs = []
     with rpd_profiler_context() if args.rpd else nullcontext():
-        outs = llm.generate([prompt_param] * batch_size,
-                            sampling_params=llm_args.sampling_params)
+        if llm_args.serverlike:
+            reqs = 0
+            llm._add_request(prompt_param, llm_args.sampling_params)
+            while llm.llm_engine.has_unfinished_requests():
+                step_outputs = llm.llm_engine.step()
+                if reqs < batch_size:
+                    llm._add_request(prompt_param, llm_args.sampling_params)
+                    reqs += 1
+                for step_output in step_outputs:
+                    if step_output.finished:
+                        text = step_output.outputs[0].text
+                        num_tokens += len(step_output.outputs[0].token_ids)
+                        if text:
+                            print(text)
+        else:
+            outs = llm.generate([prompt_param] * batch_size,
+                                sampling_params=llm_args.sampling_params)
     end_time = time.perf_counter()
     elapsed_time = end_time - start_time
 
-    out_lengths = [len(x.token_ids) for out in outs for x in out.outputs]
-    num_tokens = sum(out_lengths)
+    if not llm_args.serverlike:
+        out_lengths = [len(x.token_ids) for out in outs for x in out.outputs]
+        num_tokens = sum(out_lengths)
+        for out in outs:
+            print("===========")
+            print(out.outputs[0].text)
 
     print(
         f"{num_tokens} tokens. {num_tokens / batch_size} on average. {num_tokens / elapsed_time:.2f} tokens/s. {elapsed_time} seconds"
     )
-    for out in outs:
-        print("===========")
-        print(out.outputs[0].text)
 
 
 if __name__ == "__main__":
@@ -265,6 +289,7 @@ if __name__ == "__main__":
     parser.add_argument('--ignore-eos', action='store_true')
     parser.add_argument('--rpd-path', type=str, default=None)
     parser.add_argument('--image-path', type=str, default=None)
+    parser.add_argument('--serverlike', action='store_true')
     args = parser.parse_args()
 
     main(args)
