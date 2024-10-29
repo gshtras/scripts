@@ -9,6 +9,7 @@ import vllm.envs as envs
 from simple_term_menu import TerminalMenu
 from vllm import LLM, SamplingParams
 from vllm.inputs.data import TokensPrompt
+from PIL import Image
 
 
 class LlmKwargs(dict):
@@ -35,6 +36,7 @@ class LlmKwargs(dict):
         if self.rpd_path is None:
             self.rpd_path = args.rpd_path or os.path.join(
                 os.path.curdir, "trace.rpd")
+        self.image_path = args.image_path
 
     def __setitem__(self, key: str, value: str) -> None:
         self.kwargs[key] = value
@@ -67,6 +69,7 @@ def select_model(llm_kwargs: LlmKwargs):
             [f.path for f in os.scandir(subfolder) if f.is_dir()])
 
     folders.extend(subfolders)
+    folders = [x for x in folders if ".cache" not in x]
     folder_idx = menu(folders)
     llm_kwargs["model"] = folders[folder_idx]
 
@@ -104,6 +107,10 @@ def select_rpd_path(llm_kwargs: LlmKwargs):
     llm_kwargs.rpd_path = input("Enter RPD path: ")
 
 
+def select_image_path(llm_kwargs: LlmKwargs):
+    llm_kwargs.image_path = input("Enter image path: ")
+
+
 values = {
     "model": select_model,
     "kv_cache_dtype": ["auto", "fp8"],
@@ -119,6 +126,7 @@ values = {
     "ignore_eos": select_ignore_eos,
     "rpd": select_rpd,
     "rpd_path": select_rpd_path,
+    "image_path": select_image_path,
     "Done": None
 }
 
@@ -185,12 +193,22 @@ def main(args: argparse.Namespace):
 
     llm = LLM(**llm_args.kwargs)
 
+    prompt_param = [TokensPrompt(
+        prompt_token_ids=llm_args.prompt)] if isinstance(
+            llm_args.prompt, list) else [llm_args.prompt]
+
+    if llm_args.image_path is not None:
+        image = Image.open(llm_args.image_path).convert("RGB")
+        prompt_param = {
+            "prompt": "<|image|><|begin_of_text|>" + llm_args.prompt,
+            "multi_modal_data": {
+                "image": image
+            }
+        }
+
     start_time = time.perf_counter()
     with rpd_profiler_context() if args.rpd else nullcontext():
-        outs = llm.generate([TokensPrompt(prompt_token_ids=llm_args.prompt)] *
-                            llm_args.batch_size if isinstance(
-                                llm_args.prompt, list) else [llm_args.prompt] *
-                            batch_size,
+        outs = llm.generate(prompt_param,
                             sampling_params=llm_args.sampling_params)
     end_time = time.perf_counter()
     elapsed_time = end_time - start_time
@@ -246,6 +264,7 @@ if __name__ == "__main__":
     parser.add_argument('--temperature', type=float, default=0)
     parser.add_argument('--ignore-eos', action='store_true')
     parser.add_argument('--rpd-path', type=str, default=None)
+    parser.add_argument('--image-path', type=str, default=None)
     args = parser.parse_args()
 
     main(args)
