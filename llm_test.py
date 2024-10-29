@@ -193,9 +193,9 @@ def main(args: argparse.Namespace):
 
     llm = LLM(**llm_args.kwargs)
 
-    prompt_param = [TokensPrompt(
-        prompt_token_ids=llm_args.prompt)] if isinstance(
-            llm_args.prompt, list) else [llm_args.prompt]
+    prompt_param = TokensPrompt(
+        prompt_token_ids=llm_args.prompt) if isinstance(
+            llm_args.prompt, list) else llm_args.prompt
 
     if llm_args.image_path is not None:
         image = Image.open(llm_args.image_path).convert("RGB")
@@ -208,7 +208,7 @@ def main(args: argparse.Namespace):
 
     start_time = time.perf_counter()
     with rpd_profiler_context() if args.rpd else nullcontext():
-        outs = llm.generate(prompt_param,
+        outs = llm.generate([prompt_param] * batch_size,
                             sampling_params=llm_args.sampling_params)
     end_time = time.perf_counter()
     elapsed_time = end_time - start_time

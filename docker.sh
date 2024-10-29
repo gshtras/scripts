@@ -3,6 +3,8 @@
 dry_run=0
 interactive=0
 grep_value=
+image=${USER}_vllm
+name=${USER}_vllm
 
 while [[ $# -gt 0 ]] ; do
   i=$1
@@ -44,12 +46,9 @@ if [[ $interactive == 1 ]] ; then
     read -p "Select image: " selection
     images_arr=($images)
     image=${images_arr[$selection]}
-fi
-echo "Image: $image"
-
-if [[ $name == "" ]] ; then
     read -p "Container name: " name
 fi
+echo "Image: $image"
 
 name_arg=
 if [[ $name != "" ]] ; then
