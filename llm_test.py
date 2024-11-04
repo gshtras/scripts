@@ -55,6 +55,8 @@ class LlmKwargs(dict):
         res += f"Prompt: {self.prompt}\n"
         res += f"Batch size: {self.batch_size}\n"
         res += f"RPD: {self.rpd}: {self.rpd_path}\n"
+        res += f"Image path: {self.image_path}\n"
+        res += f"Serverlike: {self.serverlike}\n"
         return res
 
 
