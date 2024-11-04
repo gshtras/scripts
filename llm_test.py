@@ -6,7 +6,6 @@ from contextlib import contextmanager, nullcontext
 from typing import Any
 
 import vllm.envs as envs
-from simple_term_menu import TerminalMenu
 from vllm import LLM, SamplingParams
 from vllm.inputs.data import TokensPrompt
 from PIL import Image
@@ -138,6 +137,7 @@ values = {
 
 
 def menu(items):
+    from simple_term_menu import TerminalMenu
     terminal_menu = TerminalMenu([str(x) for x in items])
     menu_entry_index = terminal_menu.show()
     if menu_entry_index is None:
