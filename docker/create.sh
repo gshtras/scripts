@@ -12,12 +12,15 @@ else
     tar czvf bundle.tgz --files-from=/dev/null
 fi
 
+USER=${USER:-$(whoami)}
+PYTORCH_ROCM_ARCH=${PYTORCH_ROCM_ARCH:-$(/opt/rocm/bin/offload-arch)}
+
 docker build -f Dockerfile.vllm \
     --build-arg "UID=$(id -u)" \
     --build-arg "GID=$(id -g)" \
     --build-arg "USERNAME=$(whoami)" \
     --build-arg "RENDER_GID=$(cat /etc/group | grep render | cut -d: -f3)" \
-    --build-arg "PYTORCH_ROCM_ARCH=$(/opt/rocm/bin/offload-arch)" \
+    --build-arg "PYTORCH_ROCM_ARCH=${PYTORCH_ROCM_ARCH}" \
     -t ${USER}_vllm .
 
 rm -f requirements-lint.txt bundle.tgz

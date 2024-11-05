@@ -4,6 +4,8 @@ dry_run=0
 interactive=0
 grep_value=
 command=
+it=" -it"
+USER=${USER:-$(whoami)}
 image=${USER}_vllm
 name=${USER}_vllm
 
@@ -23,6 +25,9 @@ while [[ $# -gt 0 ]] ; do
   ;;
   -i|--interactive)
     interactive=1
+  ;;
+  --noit)
+    it=
   ;;
   -c|--command)
     command="$2"
@@ -61,9 +66,9 @@ fi
 
 if [[ $dry_run != 1 ]] ; then
 tmux rename-window "Docker:$name"
-docker run -it --rm --device=/dev/kfd --device=/dev/dri --mount type=bind,source=/home/gshtrasb/Projects,target=/projects --mount type=bind,source=/data/models,target=/models --ulimit core=0:0 --group-add video --cap-add=SYS_PTRACE $name_arg $image $command
+docker run ${it} --rm --device=/dev/kfd --device=/dev/dri --mount type=bind,source=/home/gshtrasb/Projects,target=/projects --mount type=bind,source=/data/models,target=/models --ulimit core=0:0 --group-add video --cap-add=SYS_PTRACE $name_arg $image $command
 tmux setw automatic-rename on
 echo "Finished docker image $image"
 else
-echo "docker run -it --rm --device=/dev/kfd --device=/dev/dri --mount type=bind,source=/home/gshtrasb/Projects,target=/projects --mount type=bind,source=/data/models,target=/models --ulimit core=0:0 --group-add video --cap-add=SYS_PTRACE $name_arg $image" $command
+echo "docker run ${it} --rm --device=/dev/kfd --device=/dev/dri --mount type=bind,source=/home/gshtrasb/Projects,target=/projects --mount type=bind,source=/data/models,target=/models --ulimit core=0:0 --group-add video --cap-add=SYS_PTRACE $name_arg $image" $command
 fi
