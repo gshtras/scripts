@@ -13,7 +13,8 @@ function run_perf()
     if [[ $out == "1" ]] ; then
         eager="--enforce-eager"
     fi
-    latency=$(python benchmarks/benchmark_latency.py --num-iters-warmup 3 --num-iters 10 --batch-size $batch --input-len $in --output-len $out --model /models/$model -tp $tp $eager |& grep "Avg latency:" | cut -d' ' -f3)
+    python /app/vllm/benchmarks/benchmark_latency.py --load-format dummy --num-iters-warmup 3 --num-iters 10 --batch-size $batch --input-len $in --output-len $out --model /models/$model -tp $tp $eager &> /projects/tmp/${model}_${batch}_${in}_${out}_${tp}.log
+    latency=$(cat /projects/tmp/${model}_${batch}_${in}_${out}_${tp}.log | grep "Avg latency:" | awk '{print $3}')
     echo "${model},${batch},${in},${out},${tp},${latency}"
 }
 
@@ -41,20 +42,20 @@ echo "===Performance==="
 
 run_perf llama-2-70b-chat-hf 1 2048 128 8
 
-for batch in "1 16 64" ; do
-for in in "128 1024" ; do
-for out in "1 128 1024" ; do
-for tp in "1 8" ; do
+for batch in 1 16 64 ; do
+for in in 128 1024 ; do
+for out in 1 128 1024 ; do
+for tp in 1 8 ; do
 run_perf "Meta-Llama-3.1-8B-Instruct" $batch $in $out $tp
 done
 done
 done
 done
 
-for batch in "1 64" ; do
-for in in "128 1024" ; do
-for out in "1 1024" ; do
-for tp in "1 8" ; do
+for batch in 1 64 ; do
+for in in 128 1024 ; do
+for out in 1 1024 ; do
+for tp in 1 8 ; do
 run_perf "Meta-Llama-3.1-70B-Instruct" $batch $in $out $tp
 done
 done
