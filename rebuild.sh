@@ -5,6 +5,8 @@ if [[ $(pwd) != *"vllm"* ]] ; then
     exit 1
 fi
 
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
 sudo $(which pip) uninstall -y vllm
 pip uninstall -y vllm
 
@@ -12,4 +14,4 @@ rm -rf build
 find . -name "*.so" -exec rm -f {} \;
 rm -rf .cache
 
-build.sh
+${SCRIPT_DIR}/build.sh

@@ -246,7 +246,7 @@ def main(args: argparse.Namespace):
         num_tokens = sum(out_lengths)
         for out in outs:
             print("===========")
-            print(out.outputs[0].text)
+            print(f"Generated: {out.outputs[0].text}")
 
     print(
         f"{num_tokens} tokens. {num_tokens / batch_size} on average. {num_tokens / elapsed_time:.2f} tokens/s. {elapsed_time} seconds"
