@@ -31,7 +31,10 @@ class LlmKwargs(dict):
                                               max_tokens=args.max_tokens,
                                               ignore_eos=args.ignore_eos)
         self.rpd = args.rpd
-        self.rpd_path = envs.VLLM_RPD_PROFILER_DIR
+        try:
+            self.rpd_path = envs.VLLM_RPD_PROFILER_DIR
+        except:
+            self.rpd_path = None
         if self.rpd_path is None:
             self.rpd_path = args.rpd_path or os.path.join(
                 os.path.curdir, "trace.rpd")
@@ -269,8 +272,7 @@ if __name__ == "__main__":
     parser.add_argument('-tp',
                         '--tensor-parallel-size',
                         type=int,
-                        default=1,
-                        choices=values["tensor_parallel_size"])
+                        default=1)
     parser.add_argument('--dtype',
                         type=str,
                         default='auto',
