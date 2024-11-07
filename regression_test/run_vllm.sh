@@ -13,7 +13,7 @@ function run_perf()
     if [[ $out == "1" ]] ; then
         eager="--enforce-eager"
     fi
-    python /app/vllm/benchmarks/benchmark_latency.py --load-format dummy --num-iters-warmup 3 --num-iters 10 --batch-size $batch --input-len $in --output-len $out --model /models/$model -tp $tp $eager &> /projects/tmp/${model}_${batch}_${in}_${out}_${tp}.log
+    python /app/vllm/benchmarks/benchmark_latency.py --load-format dummy --num-iters-warmup 3 --num-iters 10 --batch-size $batch --input-len $in --output-len $out --model /models/$model -tp $tp $eager &> /projects/tmp/${model}_${batch}_${in}_${out}_${tp}.log || return
     latency=$(cat /projects/tmp/${model}_${batch}_${in}_${out}_${tp}.log | grep "Avg latency:" | awk '{print $3}')
     echo "${model},${batch},${in},${out},${tp},${latency}"
 }

@@ -25,7 +25,7 @@ def main():
         input_len = int(input_len)
         output_len = int(output_len)
         tp = int(tp)
-        latency = str(round(float(latency.split(' ')[2]), 4))
+        latency = str(round(float(latency.strip()), 4))
 
         new_df = pd.DataFrame({
             'date': [date],
@@ -44,7 +44,7 @@ def main():
 
     combos = df.loc[:, ["model", "batch", "input_len", "output_len", "tp"
                         ]].drop_duplicates().sort_values(by=[
-                            "model", "batch", "input_len", "output_len", "tp"
+                            "model", "tp", "batch", "input_len", "output_len", 
                         ])
     with open("/projects/www-root/index.html", "w") as f:
         f.write(
