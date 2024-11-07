@@ -21,6 +21,8 @@ class LlmKwargs(dict):
             'dtype': args.dtype,
             'quantization': args.quantization,
             'enforce_eager': args.enforce_eager,
+            'num_scheduler_steps': args.num_scheduler_steps,
+            'disable_custom_all_reduce': args.disable_custom_all_reduce,
         }
         self.prompt = args.prompt if args.input_len == -1 else [
             0
@@ -127,6 +129,8 @@ values = {
     "dtype": ["auto", "float16", "bfloat16"],
     "quantization": ["None", "fp8", "compressed-tensors", "fbgemm-fp8"],
     "enforce_eager": [True, False],
+    "disable_custom_all_reduce": [False, True],
+    "num_scheduler_steps": [1, 10],
     "prompt": select_prompt,
     "batch_size": select_batch_size,
     "max_tokens": select_max_tokens,
@@ -264,7 +268,7 @@ if __name__ == "__main__":
                         '--interactive',
                         action='store_true',
                         help='Interactive mode')
-    parser.add_argument('--kv_cache_dtype',
+    parser.add_argument('--kv-cache-dtype',
                         type=str,
                         help='KV Cache Data Type',
                         choices=values["kv_cache_dtype"],
@@ -281,6 +285,8 @@ if __name__ == "__main__":
                         type=str,
                         default=None,
                         choices=values["quantization"])
+    parser.add_argument('--disable-custom-all-reduce', action='store_true')
+    parser.add_argument('--num-scheduler-steps', type=int, default=1)
     parser.add_argument('--prompt',
                         type=str,
                         default="There is a round table in the middle of the")
