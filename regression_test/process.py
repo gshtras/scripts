@@ -13,10 +13,25 @@ def main():
         ])
     date = lines[0].strip()
     found_pref = False
+    found_correctness = False
+    found_p3l = False
+    correctness_output = ""
+    p3l_output = ""
     for line in lines:
+        if 'Correctness' in line:
+            found_correctness = True
+            continue
         if 'Performance' in line:
             found_pref = True
             continue
+        if "P3L" in line:
+            found_p3l = True
+            continue
+        if found_p3l:
+            p3l_output += line.replace("\n", "<br/>")
+            continue
+        if found_correctness and not found_pref:
+            correctness_output += line.replace("\n", "</p><p>")
         if not found_pref:
             continue
 
@@ -48,7 +63,7 @@ def main():
                         ])
     with open("/projects/www-root/index.html", "w") as f:
         f.write(
-            "<html><body><head><link rel='stylesheet' href='index.css'></head><table><tr><th>Model</th><th>Batch</th><th>Input Length</th><th>Output Length</th><th>TP</th>"
+            "<html><body><head><link rel='stylesheet' href='index.css'></head><h1>Performance results - Latency (s)</h1><table><tr><th>Model</th><th>Batch</th><th>Input Length</th><th>Output Length</th><th>TP</th>"
         )
         dates = df.loc[:, "date"].drop_duplicates()
         for i in range(len(dates)):
@@ -72,9 +87,8 @@ def main():
                     continue
                 latency = float(matching_rows[matching_rows['date'] ==
                                               date].iloc[0]['latency'])
-                if last_latency == 0:
-                    classname = 'neutral'
-                else:
+                classname = 'neutral'
+                if last_latency > 0:
                     ratio = latency / last_latency
                     if ratio > 1.1:
                         classname = 'bad'
@@ -83,7 +97,9 @@ def main():
                 last_latency = latency
                 f.write(f"<td class='{classname}'>{latency}</td>")
             f.write("</tr>")
-        f.write("</table></body></html>")
+        f.write(f"</table><h1>Correctness results on {date}</h1><p>{correctness_output}</p>")
+        f.write(f"<h1>P3L results on {date}</h1><p>{p3l_output}</p>")
+        f.write("</body></html>")
 
 
 if __name__ == '__main__':
