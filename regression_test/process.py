@@ -1,4 +1,5 @@
 import pandas as pd
+import os
 
 def main():
     with open('/projects/result_regression.log') as f:
@@ -12,6 +13,7 @@ def main():
             'latency'
         ])
     date = lines[0].strip()
+    version = lines[1].strip()
     found_pref = False
     found_correctness = False
     found_p3l = False
@@ -61,7 +63,8 @@ def main():
                         ]].drop_duplicates().sort_values(by=[
                             "model", "tp", "batch", "input_len", "output_len", 
                         ])
-    with open("/projects/www-root/index.html", "w") as f:
+    with open("/projects/www-root/index.html", "w") as f, open(f"/projects/www-root/archive/{date}.html", "w") as archive_f:
+        archive_f.write("<html><body><head><link rel='stylesheet' href='index.css'></head>")
         f.write(
             "<html><body><head><link rel='stylesheet' href='index.css'></head><h1>Performance results - Latency (s)</h1><table><tr><th>Model</th><th>Batch</th><th>Input Length</th><th>Output Length</th><th>TP</th>"
         )
@@ -77,7 +80,7 @@ def main():
                                (df['output_len'] == combo['output_len']) &
                                (df['tp'] == combo['tp'])]
             f.write(
-                f"<tr><td>{combo['model']}</td><td>{combo['batch']}</td><td>{combo['input_len']}</td><td>{combo['output_len']}</td><td>{combo['tp']}</td>"
+                f"<tr class={'even' if i % 2 == 0 else 'odd'}><td>{combo['model']}</td><td>{combo['batch']}</td><td>{combo['input_len']}</td><td>{combo['output_len']}</td><td>{combo['tp']}</td>"
             )
             last_latency = 0
             for date_itr in range(len(dates)):
@@ -97,9 +100,19 @@ def main():
                 last_latency = latency
                 f.write(f"<td class='{classname}'>{latency}</td>")
             f.write("</tr>")
-        f.write(f"</table><h1>Correctness results on {date}</h1><p>{correctness_output}</p>")
+        f.write("</table>")
+        f.write(f"<p>Version: {version}</p>")
+        archive_f.write(f"<p>Version: {version}</p>")
+        f.write(f"<h1>Correctness results on {date}</h1><p>{correctness_output}</p>")
         f.write(f"<h1>P3L results on {date}</h1><p>{p3l_output}</p>")
+        archive_f.write(f"<h1>Correctness results on {date}</h1><p>{correctness_output}</p>")
+        archive_f.write(f"<h1>P3L results on {date}</h1><p>{p3l_output}</p>")
         f.write("</body></html>")
+        f.write("<h1>Archive</h1>")
+        for file in os.listdir("/projects/www-root/archive"):
+            if file.endswith(".html"):
+                f.write(f"<a href='archive/{file}'>{file.replace('.html','')}</a><br>")
+        archive_f.write(f"</body></html>")
 
 
 if __name__ == '__main__':

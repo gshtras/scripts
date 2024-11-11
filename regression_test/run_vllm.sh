@@ -43,6 +43,7 @@ function run_p3l()
     python /app/vllm/benchmarks/P3L.py --model /models/$model --context-size "$context" --sample-size "$sample" --patch-size $patch $@ |& egrep "Integral Cross|Average Cross|PPL"
 }
 echo $(date +%Y-%m-%d)
+pip show vllm |& grep "Version:"
 
 echo "===Correctness==="
 
