@@ -9,5 +9,6 @@ prefix_arg=
 if [[ $(whoami) == "gshtrasb" ]] ; then
     prefix_arg=" --prefix ~/.local"
 fi
+pip install -r requirements-rocm.txt
 python setup.py develop ${prefix_arg}
 

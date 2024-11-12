@@ -23,7 +23,8 @@ RUN sudo apt update && sudo apt install -y zsh less curl bc vim psmisc htop lang
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && \
     cd $HOME && tar xf bundle.tgz
 COPY requirements-lint.txt /home/$USERNAME
-RUN pip install -r /home/$USERNAME/requirements-lint.txt && pip install simple_term_menu
+RUN sudo pip uninstall -y pillow fsspec \
+    && pip install -r /home/$USERNAME/requirements-lint.txt && pip install simple_term_menu
 ENV PYTORCH_ROCM_ARCH=${PYTORCH_ROCM_ARCH}
 
 COPY Dockerfile.vllm /home/$USERNAME/
