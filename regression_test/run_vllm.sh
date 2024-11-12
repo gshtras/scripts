@@ -40,7 +40,10 @@ function run_p3l()
     patch=$4
     shift 4
     echo ${model},${context},${sample},${patch}
-    python /app/vllm/benchmarks/P3L.py --model /models/$model --context-size "$context" --sample-size "$sample" --patch-size $patch $@ |& egrep "Integral Cross|Average Cross|PPL"
+    log_name=/projects/tmp/P3L_$(echo "${model}" | sed -e 's/\//_/g')_${batch}_${in}_${out}_${tp}.log
+    python /app/vllm/benchmarks/P3L.py --model /models/$model --context-size "$context" --sample-size "$sample" --patch-size $patch $@ &> $log_name || return
+    p3l_score=$(cat $log_name |& egrep "Integral Cross|Average Cross|PPL")
+    echo $p3l_score
 }
 echo $(date +%Y-%m-%d)
 pip show vllm |& grep "Version:"
