@@ -7,8 +7,13 @@ command=
 it=" -it"
 USER=${USER:-$(whoami)}
 image=${USER}_vllm
+suffix=
 name=${USER}_vllm
-
+while : ; do
+docker ps --format "{{.Names}}" | grep $name$suffix &> /dev/null || break
+suffix=$(( suffix + 1 ))
+done
+name=$name$suffix
 while [[ $# -gt 0 ]] ; do
   i=$1
   case $i in

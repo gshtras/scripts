@@ -16,8 +16,10 @@ RUN echo "$USERNAME    ALL=(ALL:ALL) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME
 RUN rm -f $(which sccache)
 
 USER $USERNAME
+ENV LC_ALL=en_US.UTF-8
+ENV LANG=en_US.UTF-8
 COPY bundle.tgz /home/$USERNAME/bundle.tgz
-RUN sudo apt update && sudo apt install -y zsh less curl bc psmisc htop language-pack-en && sudo update-locale && \
+RUN sudo apt update && sudo apt install -y zsh less curl bc vim psmisc htop language-pack-en && sudo update-locale && \
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && \
     cd $HOME && tar xf bundle.tgz
 COPY requirements-lint.txt /home/$USERNAME
