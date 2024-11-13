@@ -29,7 +29,9 @@ function run_corectness()
     model=$1
     shift
     echo $model
-    python /projects/llm_test.py --model $model $@ |& grep "Generated:"
+    log_name=/projects/tmp/correctness_$(echo "${model}" | sed -e 's/\//_/g')_${batch}_${in}_${out}_${tp}.log
+    python /projects/llm_test.py --model $model $@ &> $log_name
+    grep "Generated:" $log_name
 }
 
 function run_p3l()
