@@ -30,7 +30,17 @@ function run_corectness()
     shift
     echo $model
     log_name=/projects/tmp/correctness_$(echo "${model}" | sed -e 's/\//_/g').log
-    python /projects/llm_test.py --model $model $@ &> $log_name
+    python /projects/llm_test.py --model /models/$model $@ &> $log_name || return
+    grep "Generated:" $log_name
+}
+
+function run_vision()
+{
+    model=$1
+    shift
+    echo $model
+    log_name=/projects/tmp/vision_$(echo "${model}" | sed -e 's/\//_/g').log
+    VLLM_USE_TRITON_FLASH_ATTN=0 python /projects/llm_test.py --model /models/$model --image-path /projects/image1.jpg --prompt "Describe this image" -tp 4 $@ &> $log_name || return
     grep "Generated:" $log_name
 }
 
@@ -47,23 +57,22 @@ function run_p3l()
     p3l_score=$(cat $log_name |& egrep "Integral Cross|Average Cross|PPL")
     echo $p3l_score
 }
+
 echo $(date +%Y-%m-%d)
 pip show vllm |& grep "Version:"
 
 echo "===Correctness==="
 
-run_corectness /models/Meta-Llama-3.1-8B-Instruct
-run_corectness /models/Meta-Llama-3.1-405B-Instruct -tp 8
-run_corectness /models/mistral-ai-models/Mixtral-8x22B-v0.1/ -tp 4
-run_corectness /models/Meta-Llama-3.1-405B-Instruct-FP8-KV -tp 8 --kv-cache-dtype fp8
-run_corectness /models/Meta-Llama-3.1-70B-Instruct-FP8-KV -tp 8 --kv-cache-dtype fp8
+run_corectness Meta-Llama-3.1-8B-Instruct
+run_corectness Meta-Llama-3.1-405B-Instruct -tp 8
+run_corectness mistral-ai-models/Mixtral-8x22B-v0.1/ -tp 4
+run_corectness Meta-Llama-3.1-405B-Instruct-FP8-KV -tp 8 --kv-cache-dtype fp8
+run_corectness Meta-Llama-3.1-70B-Instruct-FP8-KV -tp 8 --kv-cache-dtype fp8
 
 echo "===Vision==="
 
-echo "Llama-3.2-90B-Vision-Instruct"
-VLLM_USE_TRITON_FLASH_ATTN=0 python /projects/llm_test.py --model /models/Llama-3.2-90B-Vision-Instruct --image-path /projects/image1.jpg --prompt "Describe this image" -tp 4 |& grep "Generated:"
-echo "Llama-3.2-90B-Vision-Instruct-FP8-KV"
-VLLM_USE_TRITON_FLASH_ATTN=0 python /projects/llm_test.py --model /models/Llama-3.2-90B-Vision-Instruct-FP8-KV --image-path /projects/image1.jpg --prompt "Describe this image" -tp 4 |& grep "Generated:"
+run_vision Llama-3.2-90B-Vision-Instruct
+run_vision Llama-3.2-90B-Vision-Instruct-FP8-KV
 
 echo "===Performance==="
 
