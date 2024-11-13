@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 if [[ $(pwd) != *"vllm"* ]] ; then
     echo "Must be done in a vllm folder"
     exit 1

@@ -19,7 +19,7 @@ function run_perf()
         misc="--num-scheduler-steps 10"
     fi
     log_name=/projects/tmp/$(echo "${model}" | sed -e 's/\//_/g')_${batch}_${in}_${out}_${tp}.log
-    python /app/vllm/benchmarks/benchmark_latency.py --load-format dummy --num-iters-warmup 2 --num-iters 5 --batch-size $batch $misc --input-len $in --output-len $out --model /models/$model -tp $tp $eager $@ &> $log_name || return
+    python benchmarks/benchmark_latency.py --load-format dummy --num-iters-warmup 2 --num-iters 5 --batch-size $batch $misc --input-len $in --output-len $out --model /models/$model -tp $tp $eager $@ &> $log_name || return
     latency=$(cat $log_name | grep "Avg latency:" | awk '{print $3}')
     echo "${model},${batch},${in},${out},${tp},${latency}"
 }
@@ -53,7 +53,7 @@ function run_p3l()
     shift 4
     echo ${model},${context},${sample},${patch}
     log_name=/projects/tmp/P3L_$(echo "${model}" | sed -e 's/\//_/g')_${batch}_${context}_${sample}_${patch}.log
-    python /app/vllm/benchmarks/P3L.py --model /models/$model --context-size "$context" --sample-size "$sample" --patch-size $patch $@ &> $log_name || return
+    python benchmarks/P3L.py --model /models/$model --context-size "$context" --sample-size "$sample" --patch-size $patch $@ &> $log_name || return
     p3l_score=$(cat $log_name |& egrep "Integral Cross|Average Cross|PPL")
     echo $p3l_score
 }
