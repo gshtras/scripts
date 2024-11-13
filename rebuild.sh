@@ -14,4 +14,4 @@ rm -rf build
 find . -name "*.so" -exec rm -f {} \;
 rm -rf .cache
 
-${SCRIPT_DIR}/build.sh
+${SCRIPT_DIR}/build.sh $@

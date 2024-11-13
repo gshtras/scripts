@@ -11,4 +11,7 @@ if [[ $(whoami) == "gshtrasb" ]] ; then
 fi
 pip install -r requirements-rocm.txt
 python setup.py develop ${prefix_arg}
-
+if [[ "$1" == "--gradlib" ]] ; then
+    cd gradlib
+    python setup.py develop ${prefix_arg}
+fi

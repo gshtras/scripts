@@ -29,7 +29,7 @@ function run_corectness()
     model=$1
     shift
     echo $model
-    log_name=/projects/tmp/correctness_$(echo "${model}" | sed -e 's/\//_/g')_${batch}_${in}_${out}_${tp}.log
+    log_name=/projects/tmp/correctness_$(echo "${model}" | sed -e 's/\//_/g').log
     python /projects/llm_test.py --model $model $@ &> $log_name
     grep "Generated:" $log_name
 }
@@ -42,7 +42,7 @@ function run_p3l()
     patch=$4
     shift 4
     echo ${model},${context},${sample},${patch}
-    log_name=/projects/tmp/P3L_$(echo "${model}" | sed -e 's/\//_/g')_${batch}_${in}_${out}_${tp}.log
+    log_name=/projects/tmp/P3L_$(echo "${model}" | sed -e 's/\//_/g')_${batch}_${context}_${sample}_${patch}.log
     python /app/vllm/benchmarks/P3L.py --model /models/$model --context-size "$context" --sample-size "$sample" --patch-size $patch $@ &> $log_name || return
     p3l_score=$(cat $log_name |& egrep "Integral Cross|Average Cross|PPL")
     echo $p3l_score
