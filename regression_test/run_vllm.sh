@@ -4,6 +4,7 @@ set -e
 
 function run_perf()
 {
+    set +e
     model=$1
     batch=$2
     in=$3
@@ -19,33 +20,38 @@ function run_perf()
         misc="--num-scheduler-steps 10"
     fi
     log_name=/projects/tmp/$(echo "${model}" | sed -e 's/\//_/g')_${batch}_${in}_${out}_${tp}.log
-    python benchmarks/benchmark_latency.py --load-format dummy --num-iters-warmup 2 --num-iters 5 --batch-size $batch $misc --input-len $in --output-len $out --model /models/$model -tp $tp $eager $@ &> $log_name || return
-    latency=$(cat $log_name | grep "Avg latency:" | awk '{print $3}')
-    echo "${model},${batch},${in},${out},${tp},${latency}"
+    python benchmarks/benchmark_latency.py --enable-chunked-prefill False --load-format dummy --num-iters-warmup 2 --num-iters 5 --batch-size $batch $misc --input-len $in --output-len $out --model /models/$model -tp $tp $eager $@ &> $log_name
+    echo "${model},${batch},${in},${out},${tp},$(cat $log_name | grep "Avg latency:" | awk '{print $3}')"
+    set -e
 }
 
 function run_corectness()
 {
+    set +e
     model=$1
     shift
     echo $model
     log_name=/projects/tmp/correctness_$(echo "${model}" | sed -e 's/\//_/g').log
-    python /projects/llm_test.py --model /models/$model $@ &> $log_name || return
+    python /projects/llm_test.py --model /models/$model $@ &> $log_name
     grep "Generated:" $log_name
+    set -e
 }
 
 function run_vision()
 {
+    set +e
     model=$1
     shift
     echo $model
     log_name=/projects/tmp/vision_$(echo "${model}" | sed -e 's/\//_/g').log
-    VLLM_USE_TRITON_FLASH_ATTN=0 python /projects/llm_test.py --model /models/$model --image-path /projects/image1.jpg --prompt "Describe this image" -tp 4 $@ &> $log_name || return
+    VLLM_USE_TRITON_FLASH_ATTN=0 python /projects/llm_test.py --model /models/$model --image-path /projects/image1.jpg --prompt "Describe this image" -tp 4 $@ &> $log_name
     grep "Generated:" $log_name
+    set -e
 }
 
 function run_p3l()
 {
+    set +e
     model=$1
     context=$2
     sample=$3
@@ -53,9 +59,9 @@ function run_p3l()
     shift 4
     echo ${model},${context},${sample},${patch}
     log_name=/projects/tmp/P3L_$(echo "${model}" | sed -e 's/\//_/g')_${batch}_${context}_${sample}_${patch}.log
-    python benchmarks/P3L.py --model /models/$model --context-size "$context" --sample-size "$sample" --patch-size $patch $@ &> $log_name || return
-    p3l_score=$(cat $log_name |& egrep "Integral Cross|Average Cross|PPL")
-    echo $p3l_score
+    python benchmarks/P3L.py --model /models/$model --context-size "$context" --sample-size "$sample" --patch-size $patch $@ &> $log_name
+    echo $(cat $log_name |& egrep "Integral Cross|Average Cross|PPL")
+    set -e
 }
 
 echo $(date +%Y-%m-%d)
