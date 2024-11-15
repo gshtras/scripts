@@ -1,4 +1,4 @@
-FROM rocm/vllm-dev:base_ubuntu22.04_ROCm6.2.4_hipblaslt0.11_torch2.5
+FROM rocm/vllm-dev:20241025-tuned
 
 ARG UID
 ARG GID
