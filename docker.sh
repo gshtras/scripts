@@ -10,7 +10,7 @@ image=${USER}_vllm
 suffix=
 name=${USER}_vllm
 while : ; do
-docker ps --format "{{.Names}}" | grep $name$suffix &> /dev/null || break
+docker ps --format "{{.Names}}" | grep -sw $name$suffix &> /dev/null || break
 suffix=$(( suffix + 1 ))
 done
 name=$name$suffix

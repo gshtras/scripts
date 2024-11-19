@@ -1,4 +1,4 @@
-FROM rocm/vllm-dev:20241025-tuned
+FROM rocmshared/pytorch-private:vllm_base_ROCm6.2.2_hipblaslt
 
 ARG UID
 ARG GID
