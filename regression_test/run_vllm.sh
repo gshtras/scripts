@@ -10,7 +10,8 @@ function run_perf()
     in=$3
     out=$4
     tp=$5
-    shift 5
+    dtype=$6
+    shift 6
     eager=
     if [[ $out == "1" ]] ; then
         eager="--enforce-eager"
@@ -20,8 +21,8 @@ function run_perf()
         misc="--num-scheduler-steps 10"
     fi
     log_name=/projects/tmp/$(echo "${model}" | sed -e 's/\//_/g')_${batch}_${in}_${out}_${tp}.log
-    python benchmarks/benchmark_latency.py --enable-chunked-prefill False --load-format dummy --num-iters-warmup 2 --num-iters 5 --batch-size $batch $misc --input-len $in --output-len $out --model /models/$model -tp $tp $eager $@ &> $log_name
-    echo "${model},${batch},${in},${out},${tp},$(cat $log_name | grep "Avg latency:" | awk '{print $3}')"
+    python benchmarks/benchmark_latency.py --enable-chunked-prefill False --load-format dummy --dtype $dtype --num-iters-warmup 2 --num-iters 5 --batch-size $batch $misc --input-len $in --output-len $out --model /models/$model -tp $tp $eager $@ &> $log_name
+    echo "${model},${batch},${in},${out},${tp},${dtype},$(cat $log_name | grep "Avg latency:" | awk '{print $3}')"
     set -e
 }
 
@@ -82,13 +83,15 @@ run_vision Llama-3.2-90B-Vision-Instruct-FP8-KV
 
 echo "===Performance==="
 
-run_perf llama-2-70b-chat-hf 1 2048 128 8
+run_perf llama-2-70b-chat-hf 1 2048 128 8 float16
 
 for batch in 1 16 64 ; do
 for in in 128 1024 ; do
 for out in 1 128 1024 ; do
 for tp in 1 8 ; do
-run_perf "Meta-Llama-3.1-8B-Instruct" $batch $in $out $tp
+for dtype in float16 bfloat16 ; do
+run_perf "Meta-Llama-3.1-8B-Instruct" $batch $in $out $tp $dtype
+done
 done
 done
 done
@@ -98,24 +101,26 @@ for batch in 1 64 ; do
 for in in 128 1024 ; do
 for out in 1 1024 ; do
 for tp in 1 8 ; do
-run_perf "Meta-Llama-3.1-70B-Instruct" $batch $in $out $tp --max-model-len 65536
+for dtype in float16 bfloat16 ; do
+run_perf "Meta-Llama-3.1-70B-Instruct" $batch $in $out $tp $dtype --max-model-len 65536
+done
 done
 done
 done
 done
 
-run_perf Meta-Llama-3-8B-Instruct 1 2048 2048 8
-run_perf Meta-Llama-3-8B-Instruct 64 256 256 8
+run_perf Meta-Llama-3-8B-Instruct 1 2048 2048 8 float16
+run_perf Meta-Llama-3-8B-Instruct 64 256 256 8 float16
 
-run_perf Meta-Llama-3.1-405B-Instruct 1 128 1024 8
-run_perf Meta-Llama-3.1-405B-Instruct 16 1024 1024 8
+run_perf Meta-Llama-3.1-405B-Instruct 1 128 1024 8 float16
+run_perf Meta-Llama-3.1-405B-Instruct 16 1024 1024 8 float16
 
-run_perf mistral-ai-models/Mixtral-8x22B-v0.1/ 16 1024 1024 8
+run_perf mistral-ai-models/Mixtral-8x22B-v0.1/ 16 1024 1024 8 float16
 
-run_perf Meta-Llama-3.1-405B-Instruct-FP8-KV 16 1024 1024 8
-run_perf Meta-Llama-3.1-70B-Instruct-FP8-KV 16 1024 1024 8
+run_perf Meta-Llama-3.1-405B-Instruct-FP8-KV 16 1024 1024 8 float16
+run_perf Meta-Llama-3.1-70B-Instruct-FP8-KV 16 1024 1024 8 float16
 
 echo "===P3L==="
 
-run_p3l Meta-Llama-3.1-8B-Instruct 1024 512 10
-run_p3l Meta-Llama-3.1-70B-Instruct-FP8-KV 1024 512 10 --kv-cache-dtype fp8
+run_p3l Meta-Llama-3.1-8B-Instruct 1024 512 10 --dtype float16
+run_p3l Meta-Llama-3.1-70B-Instruct-FP8-KV 1024 512 10 --kv-cache-dtype fp8 --dtype float16
