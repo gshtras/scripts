@@ -8,9 +8,8 @@ cd $SCRIPT_DIR
 cd
 git clone https://github.com/rocm/vllm
 cd vllm
-git checkout base_docker_image
+git checkout develop
 pip install -r requirements-rocm.txt
-pip install Cython
 $SCRIPT_DIR/../rebuild.sh --cython |& tee /projects/build_regression.log
 $SCRIPT_DIR/run_vllm.sh |& tee /projects/result_regression.log
 python $SCRIPT_DIR/process.py

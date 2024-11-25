@@ -51,12 +51,15 @@ def main():
         if not found_pref:
             continue
 
-        try:
-            model, batch, input_len, output_len, tp, dtype, latency = line.split(
-                ',')
-        except:
+        parts = line.split(',')
+        if len(parts) == 6:
             model, batch, input_len, output_len, tp, latency = line.split(',')
             dtype = 'bfloat16'
+        elif len(parts) == 7:
+            model, batch, input_len, output_len, tp, dtype, latency = line.split(
+                ',')
+        else:
+            continue
         batch = int(batch)
         input_len = int(input_len)
         output_len = int(output_len)
