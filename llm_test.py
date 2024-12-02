@@ -1,4 +1,5 @@
 import argparse
+import dataclasses
 import os
 import sqlite3
 import time
@@ -6,6 +7,7 @@ from contextlib import contextmanager, nullcontext
 from typing import Any
 
 import vllm.envs as envs
+from vllm.engine.arg_utils import EngineArgs
 from vllm import LLM, SamplingParams
 from vllm.inputs.data import TokensPrompt
 from PIL import Image
@@ -14,16 +16,7 @@ from PIL import Image
 class LlmKwargs(dict):
 
     def __init__(self, args: argparse.Namespace) -> None:
-        self.kwargs = {
-            'model': args.model,
-            'kv_cache_dtype': args.kv_cache_dtype,
-            'tensor_parallel_size': args.tensor_parallel_size,
-            'dtype': args.dtype,
-            'quantization': args.quantization,
-            'enforce_eager': args.enforce_eager,
-            'num_scheduler_steps': args.num_scheduler_steps,
-            'disable_custom_all_reduce': args.disable_custom_all_reduce,
-        }
+        self.engine_args = EngineArgs.from_cli_args(args)
         self.prompt = args.prompt if args.input_len == -1 else [
             0
         ] * args.input_len
@@ -43,20 +36,21 @@ class LlmKwargs(dict):
         self.image_path = args.image_path
         self.serverlike = args.serverlike
 
-    def __setitem__(self, key: str, value: str) -> None:
-        self.kwargs[key] = value
 
     def set_rpd(self, value: str):
         self.rpd = value
         if self.rpd and self.rpd_path is None:
             self.rpd_path = os.path.join(os.path.curdir, "trace.rpd")
 
+    def __setitem__(self, key: str, value: str) -> None:
+        self.engine_args = dataclasses.replace(self.engine_args, **{key: value})
+
     def __str__(self) -> str:
-        res = "===================\n"
-        for key, value in self.kwargs.items():
-            res += f"{key}: {value}\n"
-        res += f"Sampling params: {self.sampling_params}\n"
-        res += "\n Misc: \n"
+        res = "\n === Engine Args === \n"
+        res += f"{self.engine_args}\n"
+        res += "\n === Sampling params ===\n"
+        res += f"{self.sampling_params}\n"
+        res += "\n === Misc === \n"
         res += f"Prompt: {self.prompt}\n"
         res += f"Batch size: {self.batch_size}\n"
         res += f"RPD: {self.rpd}: {self.rpd_path}\n"
@@ -78,7 +72,7 @@ def select_model(llm_kwargs: LlmKwargs):
     folders.extend(subfolders)
     folders = [x for x in folders if ".cache" not in x]
     folder_idx = menu(folders)
-    llm_kwargs["model"] = folders[folder_idx]
+    llm_kwargs.engine_args.model = folders[folder_idx]
 
 
 def select_prompt(llm_kwargs: LlmKwargs):
@@ -206,7 +200,7 @@ def main(args: argparse.Namespace):
     if llm_args.rpd:
         recreate_trace(llm_args)
 
-    llm = LLM(**llm_args.kwargs)
+    llm = LLM(**dataclasses.asdict(llm_args.engine_args))
 
     prompt_param = TokensPrompt(
         prompt_token_ids=llm_args.prompt) if isinstance(
@@ -250,7 +244,7 @@ def main(args: argparse.Namespace):
         num_tokens = sum(out_lengths)
         for out in outs:
             print("===========")
-            print(f"Generated: {out.outputs[0].text}")
+            print(f"Generated: {out.outputs[0].text.replace('\n', ' ')}")
 
     print(
         f"{num_tokens} tokens. {num_tokens / batch_size} on average. {num_tokens / elapsed_time:.2f} tokens/s. {elapsed_time} seconds"
@@ -259,47 +253,24 @@ def main(args: argparse.Namespace):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='LLM Test much')
-    parser.add_argument('-m',
-                        '--model',
-                        type=str,
-                        help='Model to use',
-                        default='/models/llama-2-7b-chat-hf')
     parser.add_argument('-i',
                         '--interactive',
                         action='store_true',
                         help='Interactive mode')
-    parser.add_argument('--kv-cache-dtype',
-                        type=str,
-                        help='KV Cache Data Type',
-                        choices=values["kv_cache_dtype"],
-                        default='auto')
-    parser.add_argument('-tp',
-                        '--tensor-parallel-size',
-                        type=int,
-                        default=1)
-    parser.add_argument('--dtype',
-                        type=str,
-                        default='auto',
-                        choices=values["dtype"])
-    parser.add_argument('--quantization',
-                        type=str,
-                        default=None,
-                        choices=values["quantization"])
-    parser.add_argument('--disable-custom-all-reduce', action='store_true')
-    parser.add_argument('--num-scheduler-steps', type=int, default=1)
     parser.add_argument('--prompt',
                         type=str,
                         default="There is a round table in the middle of the")
+    parser.add_argument('--input-len', type=int, default=-1)
     parser.add_argument('--batch-size', type=int, default=1)
     parser.add_argument('--max-tokens', type=int, default=256)
-    parser.add_argument('--enforce-eager', action='store_true')
     parser.add_argument('--rpd', action='store_true')
-    parser.add_argument('--input-len', type=int, default=-1)
     parser.add_argument('--temperature', type=float, default=0)
     parser.add_argument('--ignore-eos', action='store_true')
     parser.add_argument('--rpd-path', type=str, default=None)
     parser.add_argument('--image-path', type=str, default=None)
     parser.add_argument('--serverlike', action='store_true')
+
+    parser = EngineArgs.add_cli_args(parser)
     args = parser.parse_args()
 
     main(args)

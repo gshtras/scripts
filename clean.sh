@@ -9,5 +9,10 @@ fi
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-${SCRIPT_DIR}/clean.sh $@
-${SCRIPT_DIR}/build.sh $@
+sudo $(which pip) uninstall -y vllm
+pip uninstall -y vllm
+
+rm -rf build
+rm -rf .deps
+find . -name "*.so" -exec rm -f {} \;
+rm -rf .cache
