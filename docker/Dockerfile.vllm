@@ -19,12 +19,12 @@ USER $USERNAME
 ENV LC_ALL=en_US.UTF-8
 ENV LANG=en_US.UTF-8
 COPY bundle.tgz /home/$USERNAME/bundle.tgz
-RUN sudo apt update && sudo apt install -y zsh less curl bc vim psmisc htop language-pack-en && sudo update-locale && \
+RUN sudo apt update && sudo apt install -y zsh less curl bc vim psmisc htop language-pack-en wget && sudo update-locale && \
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && \
     cd $HOME && tar xf bundle.tgz
 COPY requirements-lint.txt /home/$USERNAME
 RUN sudo pip uninstall -y pillow fsspec \
-    && pip install -r /home/$USERNAME/requirements-lint.txt && pip install simple_term_menu
+    && pip install -r /home/$USERNAME/requirements-lint.txt && pip install simple_term_menu setuptools_scm
 ENV PYTORCH_ROCM_ARCH=${PYTORCH_ROCM_ARCH}
 
 COPY Dockerfile.vllm /home/$USERNAME/

@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
 pip uninstall -y torch
-git clone https://github.com/ROCm/pytorch
+git clone https://github.com/pytorch/pytorch
 cd pytorch
-git checkout cedc116
+git checkout 8bc4033
 pip install -r requirements.txt
 export CMAKE_PREFIX_PATH=$(python3 -c 'import sys; print(sys.prefix)')
 export PYTORCH_ROCM_ARCH=gfx942
