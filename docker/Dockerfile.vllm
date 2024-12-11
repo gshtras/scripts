@@ -1,4 +1,4 @@
-FROM rocm/vllm-dev:base_ubuntu22.04_py3.12_ROCm6.3_hipblaslt0.11_torch2.6
+FROM rocm/vllm-dev:base_ubuntu22.04_py3.12_ROCm6.3_hipblaslt0.12_torch2.6
 
 ARG UID
 ARG GID
@@ -28,4 +28,5 @@ RUN sudo pip uninstall -y pillow fsspec \
 ENV PYTORCH_ROCM_ARCH=${PYTORCH_ROCM_ARCH}
 
 COPY Dockerfile.vllm /home/$USERNAME/
+COPY .gdbinit /home/$USERNAME/
 CMD ["/usr/bin/zsh"]

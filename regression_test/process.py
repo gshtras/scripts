@@ -126,16 +126,15 @@ def main():
                                (df['tp'] == combo['tp']) & (df['dtype'] == combo['dtype'])]
             if len(matching_rows) == 0:
                 continue
-            f.write(
-                f"<tr><td>{combo['model']}</td><td class='num'>{combo['batch']}</td><td class='num'>{combo['input_len']}</td><td class='num'>{combo['output_len']}</td><td class='num'>{combo['tp']}</td><td>{combo['dtype']}</td>"
-            )
+            model_row = f"<tr><td>{combo['model']}</td><td class='num'>{combo['batch']}</td><td class='num'>{combo['input_len']}</td><td class='num'>{combo['output_len']}</td><td class='num'>{combo['tp']}</td><td>{combo['dtype']}</td>"
+            has_data = False
             last_latency = 0
             avg_latency = 0
             num_entries = 0
             for date_itr in range(len(dates)):
                 date = dates.iloc[date_itr]
                 if matching_rows[matching_rows['date'] == date].empty:
-                    f.write("<td></td>")
+                    model_row += "<td></td>"
                     continue
                 latency = float(matching_rows[matching_rows['date'] ==
                                               date].iloc[0]['latency'])
@@ -156,8 +155,11 @@ def main():
                       < 0.9) or last_ratio < 0.5 or avg_ratio < 0.5:
                     classname = ' good'
                 last_latency = latency
-                f.write(f"<td class='num{classname}'>{latency}</td>")
-            f.write("</tr>")
+                model_row += f"<td class='num{classname}'>{latency}</td>"
+                has_data = True
+            model_row += "</tr>"
+            if has_data:
+                f.write(model_row)
         f.write("</tbody></table>")
         f.write(f"<p>Version: {version}</p>")
         archive_f.write(f"<p>Version: {version}</p>")
