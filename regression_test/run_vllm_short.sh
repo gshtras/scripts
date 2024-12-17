@@ -108,7 +108,8 @@ done
 done
 done
 
-run_perf Meta-Llama-3.1-405B-Instruct 16 1024 1024 8 float16
+run_perf mistral-ai-models/Mixtral-8x22B-v0.1/ 16 1024 1024 8 float16
+run_perf mistral-ai-models/Mixtral-8x7B-Instruct-v0.1-FP8-KV/ 16 1024 1024 8 float16
 
 echo "===P3L==="
 
