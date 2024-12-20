@@ -1,4 +1,4 @@
-FROM rocm/vllm-dev:base_ubuntu22.04_py3.12_ROCm6.3_hipblaslt0.12_torch2.6
+FROM rocm/vllm-dev:base
 
 ARG UID
 ARG GID
