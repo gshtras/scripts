@@ -64,7 +64,10 @@ function run_p3l()
     echo $(cat $log_name |& egrep "Integral Cross|Average Cross|PPL")
     set -e
 }
-
+if [[ ! -f benchmarks/benchmark_latency.py ]] ; then
+    echo "Please run this script from the vllm folder"
+    exit 1
+fi
 echo $(date +%Y-%m-%d)
 pip show vllm |& grep "Version:"
 
