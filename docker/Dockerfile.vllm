@@ -1,4 +1,5 @@
-FROM rocm/vllm-dev:base
+ARG BASE_IMAGE=rocm/vllm-dev:base
+FROM ${BASE_IMAGE}
 
 ARG UID
 ARG GID
@@ -28,5 +29,6 @@ RUN sudo pip uninstall -y pillow fsspec \
 ENV PYTORCH_ROCM_ARCH=${PYTORCH_ROCM_ARCH}
 
 COPY Dockerfile.vllm /home/$USERNAME/
+RUN echo ${BASE_IMAGE} > /home/$USERNAME/.base_image
 COPY .gdbinit /home/$USERNAME/
 CMD ["/usr/bin/zsh"]
