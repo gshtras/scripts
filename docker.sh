@@ -15,6 +15,7 @@ docker ps --format "{{.Names}}" | grep -sw $name$suffix &> /dev/null || break
 suffix=$(( suffix + 1 ))
 done
 name=$name$suffix
+models_folder=/data/models
 while [[ $# -gt 0 ]] ; do
   i=$1
   case $i in
@@ -41,6 +42,10 @@ while [[ $# -gt 0 ]] ; do
   ;;
   --shmem)
     extra_args="--shm-size $2"
+    shift
+  ;;
+  -m)
+    models_folder="$2"
     shift
   ;;
   *)
@@ -74,11 +79,22 @@ if [[ $name != "" ]] ; then
     name_arg=" --name $name"
 fi
 
+if command -v rocm-smi ; then
+    IS_ROCM=1
+    gpu_args="--device=/dev/kfd --device=/dev/dri --group-add video"
+elif command -v nvidia-smi ; then
+    IS_CUDA=1
+    gpu_args="--runtime nvidia --gpus all"
+else
+    echo "No GPU found"
+    exit 1
+fi
+
 if [[ $dry_run != 1 ]] ; then
 tmux rename-window "Docker:$name"
-docker run ${it} --rm --device=/dev/kfd --device=/dev/dri --mount type=bind,source=/home/gshtrasb/Projects,target=/projects --mount type=bind,source=/data/models,target=/models --ulimit core=0:0 --ulimit memlock=-1:-1 $extra_args --group-add video --cap-add=SYS_PTRACE $name_arg $image $command
+docker run ${it} --rm ${gpu_args} --mount type=bind,source=/home/gshtrasb/Projects,target=/projects --mount type=bind,source=${models_folder},target=/models --ulimit core=0:0 --ulimit memlock=-1:-1 $extra_args --entrypoint /bin/zsh --cap-add=SYS_PTRACE $name_arg $image $command
 tmux setw automatic-rename on
 echo "Finished docker image $image"
 else
-echo "docker run ${it} --rm --device=/dev/kfd --device=/dev/dri --mount type=bind,source=/home/gshtrasb/Projects,target=/projects --mount type=bind,source=/data/models,target=/models --ulimit core=0:0 --ulimit memlock=-1:-1 $extra_args --group-add video --cap-add=SYS_PTRACE $name_arg $image $command"
+echo "docker run ${it} --rm ${gpu_args} --mount type=bind,source=/home/gshtrasb/Projects,target=/projects --mount type=bind,source=${models_folder},target=/models --ulimit core=0:0 --ulimit memlock=-1:-1 $extra_args --entrypoint /bin/zsh --cap-add=SYS_PTRACE $name_arg $image $command"
 fi

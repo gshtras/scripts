@@ -6,15 +6,19 @@ ARG GID
 ARG RENDER_GID
 ARG USERNAME
 ARG PYTORCH_ROCM_ARCH=gfx942
+ARG TORCH_CUDA_ARCH_LIST=9.0
+ARG IS_ROCM
 
 RUN addgroup --gid $GID $USERNAME
-RUN grep render:x /etc/group && perl -p -i -e "s/^render:x:[0-9]+/render:x:${RENDER_GID}/g" /etc/group || echo
-RUN grep render:x:$RENDER_GID /etc/group || addgroup --gid $RENDER_GID render
+RUN if [[ $IS_ROCM == 1 ]] ; then grep render:x /etc/group && perl -p -i -e "s/^render:x:[0-9]+/render:x:${RENDER_GID}/g" /etc/group || echo ; fi
+RUN if [[ $IS_ROCM == 1 ]] ; then grep render:x:$RENDER_GID /etc/group || addgroup --gid $RENDER_GID render ; fi
 RUN adduser --disabled-password --gid $GID --uid $UID --gecos '' $USERNAME
 RUN adduser $USERNAME sudo
-RUN adduser $USERNAME render
+RUN if [[ $IS_ROCM == 1 ]] ; then adduser $USERNAME render ; fi
 RUN echo "$USERNAME    ALL=(ALL:ALL) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME
 RUN rm -f $(which sccache)
+ARG BASE_IMAGE
+RUN echo ${BASE_IMAGE} > /home/$USERNAME/.base_image
 
 USER $USERNAME
 ENV LC_ALL=en_US.UTF-8
@@ -27,8 +31,8 @@ COPY requirements-lint.txt /home/$USERNAME
 RUN sudo pip uninstall -y pillow fsspec \
     && pip install -r /home/$USERNAME/requirements-lint.txt && pip install simple_term_menu setuptools_scm
 ENV PYTORCH_ROCM_ARCH=${PYTORCH_ROCM_ARCH}
+ENV TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST}
 
 COPY Dockerfile.vllm /home/$USERNAME/
-RUN echo ${BASE_IMAGE} > /home/$USERNAME/.base_image
 COPY .gdbinit /home/$USERNAME/
 CMD ["/usr/bin/zsh"]

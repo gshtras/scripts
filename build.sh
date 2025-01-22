@@ -22,11 +22,22 @@ while [[ $# -gt 0 ]] ; do
   shift
 done
 
+if command -v rocm-smi ; then
+    IS_ROCM=1
+elif command -v nvidia-smi ; then
+    IS_CUDA=1
+else
+    echo "No GPU found"
+    exit 1
+fi
+
 prefix_arg=
 if [[ $(whoami) == "gshtrasb" ]] ; then
     prefix_arg=" --prefix ~/.local"
 fi
-pip install -r requirements-rocm.txt
+if [[ $IS_ROCM == 1 ]] ; then
+    pip install -r requirements-rocm.txt
+fi
 python3 setup.py develop ${prefix_arg}
 if [[ $gradlib == 1 ]] ; then
     cd gradlib
