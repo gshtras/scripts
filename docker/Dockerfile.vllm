@@ -35,4 +35,4 @@ ENV TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST}
 
 COPY Dockerfile.vllm /home/$USERNAME/
 COPY .gdbinit /home/$USERNAME/
-CMD ["/usr/bin/zsh"]
+ENTRYPOINT ["/usr/bin/zsh"]

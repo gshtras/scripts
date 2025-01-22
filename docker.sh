@@ -15,6 +15,7 @@ docker ps --format "{{.Names}}" | grep -sw $name$suffix &> /dev/null || break
 suffix=$(( suffix + 1 ))
 done
 name=$name$suffix
+entrypoint=
 models_folder=/data/models
 while [[ $# -gt 0 ]] ; do
   i=$1
@@ -46,6 +47,10 @@ while [[ $# -gt 0 ]] ; do
   ;;
   -m)
     models_folder="$2"
+    shift
+  ;;
+  -e|--entrypoint)
+    entrypoint="--entrypoint $2"
     shift
   ;;
   *)
@@ -92,9 +97,9 @@ fi
 
 if [[ $dry_run != 1 ]] ; then
 tmux rename-window "Docker:$name"
-docker run ${it} --rm ${gpu_args} --mount type=bind,source=/home/gshtrasb/Projects,target=/projects --mount type=bind,source=${models_folder},target=/models --ulimit core=0:0 --ulimit memlock=-1:-1 $extra_args --entrypoint /bin/zsh --cap-add=SYS_PTRACE $name_arg $image $command
+docker run ${it} --rm ${gpu_args} --mount type=bind,source=/home/gshtrasb/Projects,target=/projects --mount type=bind,source=${models_folder},target=/models --ulimit core=0:0 --ulimit memlock=-1:-1 $entrypoint $extra_args --cap-add=SYS_PTRACE $name_arg $image $command
 tmux setw automatic-rename on
 echo "Finished docker image $image"
 else
-echo "docker run ${it} --rm ${gpu_args} --mount type=bind,source=/home/gshtrasb/Projects,target=/projects --mount type=bind,source=${models_folder},target=/models --ulimit core=0:0 --ulimit memlock=-1:-1 $extra_args --entrypoint /bin/zsh --cap-add=SYS_PTRACE $name_arg $image $command"
+echo "docker run ${it} --rm ${gpu_args} --mount type=bind,source=/home/gshtrasb/Projects,target=/projects --mount type=bind,source=${models_folder},target=/models --ulimit core=0:0 --ulimit memlock=-1:-1 $entrypoint $extra_args --cap-add=SYS_PTRACE $name_arg $image $command"
 fi
