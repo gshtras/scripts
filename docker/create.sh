@@ -5,16 +5,16 @@ set -x
 USER=${USER:-$(whoami)}
 name=${USER}_vllm
 
-if command -v rocm-smi ; then
-    IS_ROCM=1
-    vllm_repo=ROCm
-    base=rocm/vllm-dev:base
-elif command -v nvidia-smi ; then
+if command -v nvidia-smi ; then
     IS_CUDA=1
     vllm_repo=vllm-project
     # From vllm-project/vllm.git
     # docker build --target dev -t vllm_dev .
     base=vllm_dev
+elif command -v rocm-smi ; then
+    IS_ROCM=1
+    vllm_repo=ROCm
+    base=rocm/vllm-dev:base
 else
     echo "No GPU found"
     exit 1

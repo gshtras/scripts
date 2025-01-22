@@ -84,12 +84,12 @@ if [[ $name != "" ]] ; then
     name_arg=" --name $name"
 fi
 
-if command -v rocm-smi ; then
-    IS_ROCM=1
-    gpu_args="--device=/dev/kfd --device=/dev/dri --group-add video"
-elif command -v nvidia-smi ; then
+if command -v nvidia-smi ; then
     IS_CUDA=1
     gpu_args="--runtime nvidia --gpus all"
+elif command -v rocm-smi ; then
+    IS_ROCM=1
+    gpu_args="--device=/dev/kfd --device=/dev/dri --group-add video"
 else
     echo "No GPU found"
     exit 1

@@ -22,10 +22,10 @@ while [[ $# -gt 0 ]] ; do
   shift
 done
 
-if command -v rocm-smi ; then
-    IS_ROCM=1
-elif command -v nvidia-smi ; then
+if command -v nvidia-smi ; then
     IS_CUDA=1
+elif command -v rocm-smi ; then
+    IS_ROCM=1
 else
     echo "No GPU found"
     exit 1
