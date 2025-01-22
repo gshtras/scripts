@@ -2,6 +2,7 @@
 set -e
 set -x
 
+USER=${USER:-$(whoami)}
 name=${USER}_vllm
 
 if command -v rocm-smi ; then
@@ -49,7 +50,6 @@ else
     tar czvf bundle.tgz --files-from=/dev/null
 fi
 
-USER=${USER:-$(whoami)}
 if [[ $IS_ROCM == 1 ]] ; then
     PYTORCH_ROCM_ARCH=${PYTORCH_ROCM_ARCH:-$(/opt/rocm/bin/offload-arch)}
 elif [[ $IS_CUDA == 1 ]] ; then
