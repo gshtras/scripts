@@ -64,7 +64,6 @@ docker build -f Dockerfile.vllm \
     --build-arg "RENDER_GID=$(cat /etc/group | grep render | cut -d: -f3)" \
     --build-arg "TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST}" \
     --build-arg "PYTORCH_ROCM_ARCH=${PYTORCH_ROCM_ARCH}" \
-    --build-arg "IS_ROCM=${IS_ROCM}" \
     -t ${name} .
 
 rm -f requirements-lint.txt bundle.tgz

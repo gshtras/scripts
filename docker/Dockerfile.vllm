@@ -7,14 +7,13 @@ ARG RENDER_GID
 ARG USERNAME
 ARG PYTORCH_ROCM_ARCH=gfx942
 ARG TORCH_CUDA_ARCH_LIST=9.0
-ARG IS_ROCM
 
 RUN addgroup --gid $GID $USERNAME
-RUN if [[ $IS_ROCM == 1 ]] ; then grep render:x /etc/group && perl -p -i -e "s/^render:x:[0-9]+/render:x:${RENDER_GID}/g" /etc/group || echo ; fi
-RUN if [[ $IS_ROCM == 1 ]] ; then grep render:x:$RENDER_GID /etc/group || addgroup --gid $RENDER_GID render ; fi
+RUN if command -v rocm-smi ; then grep render:x /etc/group && perl -p -i -e "s/^render:x:[0-9]+/render:x:${RENDER_GID}/g" /etc/group || echo ; fi
+RUN if command -v rocm-smi ; then grep render:x:$RENDER_GID /etc/group || addgroup --gid $RENDER_GID render ; fi
 RUN adduser --disabled-password --gid $GID --uid $UID --gecos '' $USERNAME
 RUN adduser $USERNAME sudo
-RUN if [[ $IS_ROCM == 1 ]] ; then adduser $USERNAME render ; fi
+RUN if command -v rocm-smi ; then adduser $USERNAME render ; fi
 RUN echo "$USERNAME    ALL=(ALL:ALL) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME
 RUN rm -f $(which sccache)
 ARG BASE_IMAGE
@@ -35,4 +34,4 @@ ENV TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST}
 
 COPY Dockerfile.vllm /home/$USERNAME/
 COPY .gdbinit /home/$USERNAME/
-ENTRYPOINT ["/usr/bin/zsh"]
+CMD ["/usr/bin/zsh"]
