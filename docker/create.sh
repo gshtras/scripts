@@ -56,6 +56,9 @@ elif [[ $IS_CUDA == 1 ]] ; then
     TORCH_CUDA_ARCH_LIST=$(nvidia-smi --query-gpu=compute_cap --format=csv | tail -1)
 fi
 
+# Can't docker build --pull in case it's a local image
+docker pull ${base} || true
+
 docker build -f Dockerfile.vllm \
     --build-arg "BASE_IMAGE=${base}" \
     --build-arg "UID=$(id -u)" \
