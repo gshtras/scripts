@@ -73,10 +73,13 @@ pip show vllm |& grep "Version:"
 
 echo "===Correctness==="
 
-run_corectness Meta-Llama-3.1-8B-Instruct
-run_corectness Meta-Llama-3.1-405B-Instruct -tp 8
+run_corectness Llama-3.1-8B-Instruct
+run_corectness Llama-3.1-405B-Instruct -tp 8
 run_corectness mistral-ai-models/Mixtral-8x22B-v0.1/ -tp 4
-run_corectness Meta-Llama-3.1-70B-Instruct-FP8-KV -tp 8 --kv-cache-dtype fp8
+run_corectness Llama-3.1-70B-Instruct-FP8-KV -tp 8 --kv-cache-dtype fp8
+export VLLM_USE_ROCM_FP8_FLASH_ATTN=1
+run_corectness Llama-3.1-8B-Instruct-FP8-QKV-Prob
+unset VLLM_USE_ROCM_FP8_FLASH_ATTN
 
 echo "===Vision==="
 
@@ -92,7 +95,7 @@ for in in 1024 ; do
 for out in 1024 ; do
 for tp in 8 ; do
 for dtype in float16 ; do
-run_perf "Meta-Llama-3.1-8B-Instruct" $batch $in $out $tp $dtype
+run_perf "Llama-3.1-8B-Instruct" $batch $in $out $tp $dtype
 done
 done
 done
@@ -104,7 +107,7 @@ for in in 128 ; do
 for out in 1024 ; do
 for tp in 8 ; do
 for dtype in float16 ; do
-run_perf "Meta-Llama-3.1-70B-Instruct" $batch $in $out $tp $dtype --max-model-len 65536
+run_perf "Llama-3.1-70B-Instruct" $batch $in $out $tp $dtype --max-model-len 65536
 done
 done
 done
@@ -116,4 +119,4 @@ run_perf mistral-ai-models/Mixtral-8x7B-Instruct-v0.1-FP8-KV/ 16 1024 1024 8 flo
 
 echo "===P3L==="
 
-run_p3l Meta-Llama-3.1-8B-Instruct 1024 512 15 --dtype float16
+run_p3l Llama-3.1-8B-Instruct 1024 512 15 --dtype float16
