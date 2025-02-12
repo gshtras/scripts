@@ -96,10 +96,11 @@ else
 fi
 
 if [[ $dry_run != 1 ]] ; then
+full_cmd="docker run ${it} --rm ${gpu_args} -v /tmp/tmux-$(id -u):/tmp/tmux --mount type=bind,source=/home/gshtrasb/Projects,target=/projects --mount type=bind,source=${models_folder},target=/models --ulimit core=0:0 --ulimit memlock=-1:-1 $entrypoint $extra_args --cap-add=SYS_PTRACE $name_arg $image $command"
 tmux rename-window "Docker:$name"
-docker run ${it} --rm ${gpu_args} --mount type=bind,source=/home/gshtrasb/Projects,target=/projects --mount type=bind,source=${models_folder},target=/models --ulimit core=0:0 --ulimit memlock=-1:-1 $entrypoint $extra_args --cap-add=SYS_PTRACE $name_arg $image $command
+${full_cmd}
 tmux setw automatic-rename on
 echo "Finished docker image $image"
 else
-echo "docker run ${it} --rm ${gpu_args} --mount type=bind,source=/home/gshtrasb/Projects,target=/projects --mount type=bind,source=${models_folder},target=/models --ulimit core=0:0 --ulimit memlock=-1:-1 $entrypoint $extra_args --cap-add=SYS_PTRACE $name_arg $image $command"
+echo "Dry run: $full_cmd"
 fi
