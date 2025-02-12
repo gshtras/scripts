@@ -79,6 +79,7 @@ run_corectness mistral-ai-models/Mixtral-8x22B-v0.1/ $dtype -tp 8
 done
 run_corectness Llama-3.1-405B-Instruct-FP8-KV float16 -tp 8 --kv-cache-dtype fp8
 run_corectness Llama-3.1-70B-Instruct-FP8-KV float16 -tp 8 --kv-cache-dtype fp8
+run_corectness DeepSeek-R1 auto -tp 8 --trust-remote-code
 export VLLM_USE_ROCM_FP8_FLASH_ATTN=1
 run_corectness Llama-3.1-8B-Instruct-FP8-QKV-Prob float16 -tp 8 --kv-cache-dtype fp8
 unset VLLM_USE_ROCM_FP8_FLASH_ATTN
@@ -129,8 +130,11 @@ run_perf mistral-ai-models/Mixtral-8x7B-Instruct-v0.1-FP8-KV/ 16 1024 1024 8 flo
 run_perf Llama-3.1-405B-Instruct-FP8-KV 16 1024 1024 8 float16
 run_perf Llama-3.1-70B-Instruct-FP8-KV 16 1024 1024 8 float16
 
+run_perf DeepSeek-R1 32 128 32 8 auto --trust-remote-code
+
 echo "===P3L==="
 
 run_p3l Llama-3.1-8B-Instruct 1024 512 15 --dtype float16
 run_p3l Llama-3.1-70B-Instruct-FP8-KV 1024 512 15 --kv-cache-dtype fp8 --dtype float16
 run_p3l mistral-ai-models/Mixtral-8x22B-v0.1/ 1024 512 15 -tp 8 --dtype float16
+run_p3l DeepSeek-R1 1024 512 15 -tp 8

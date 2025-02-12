@@ -81,7 +81,7 @@ echo "Image: $image"
 
 name_arg=
 if [[ $name != "" ]] ; then
-    name_arg=" --name $name"
+    name_arg=" --name $name -e CONTAINER_NAME=$name"
 fi
 
 if command -v nvidia-smi ; then
