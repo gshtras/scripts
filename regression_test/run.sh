@@ -6,7 +6,7 @@ echo "Starting $(date)"
 export PYTORCH_ROCM_ARCH="gfx942"
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-$SCRIPT_DIR/docker_top.sh
+$SCRIPT_DIR/../docker_top.sh --kill
 
 cd $SCRIPT_DIR/../docker
 $SCRIPT_DIR/../docker/create.sh

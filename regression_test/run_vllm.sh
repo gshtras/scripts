@@ -137,4 +137,4 @@ echo "===P3L==="
 run_p3l Llama-3.1-8B-Instruct 1024 512 15 --dtype float16
 run_p3l Llama-3.1-70B-Instruct-FP8-KV 1024 512 15 --kv-cache-dtype fp8 --dtype float16
 run_p3l mistral-ai-models/Mixtral-8x22B-v0.1/ 1024 512 15 -tp 8 --dtype float16
-run_p3l DeepSeek-R1 1024 512 15 -tp 8 --max-model-len 32768
+run_p3l DeepSeek-R1 1024 512 15 -tp 8 --max-model-len 32768 --trust-remote-code

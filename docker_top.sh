@@ -1,4 +1,17 @@
 #!/bin/bash
+
+kill=0
+
+while [[ $# -gt 0 ]] ; do
+  i=$1
+  case $i in
+  --kill)
+    kill=1
+  ;;
+  esac
+  shift
+done
+
 pids=$(/opt/rocm/bin/rocm-smi --showpids | egrep "^[0-9]" | awk '{print $1}')
 
 cids=()
@@ -18,5 +31,9 @@ sorted_unique_cids=($(echo "${cids[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' '))
 
 for cid in ${sorted_unique_cids[@]} ; do
     echo "Container ID: ${cid}"
+    if [[ $kill -eq 1 ]] ; then
+    echo "Killing $cid"
+        docker kill $cid
+    fi
     docker inspect $cid | grep home | tr -s ' ' | head -1
 done
