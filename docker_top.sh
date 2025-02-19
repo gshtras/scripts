@@ -1,12 +1,17 @@
 #!/bin/bash
 
 kill=0
+grep_command=
 
 while [[ $# -gt 0 ]] ; do
   i=$1
   case $i in
   --kill)
     kill=1
+  ;;
+  -v)
+    grep_command="$2"
+    shift
   ;;
   esac
   shift
@@ -23,6 +28,10 @@ for pid in $pids ; do
     for new_cid_name in $new_cids ; do
         new_cid=$(echo $new_cid_name | cut -d':' -f1)
         echo "Container: $new_cid_name"
+        if [[ -n $grep_command && $new_cid_name =~ $grep_command ]] ; then
+          echo "Matched $grep_command"
+          continue
+        fi
         cids+=( $new_cid )
     done
 done
@@ -32,8 +41,8 @@ sorted_unique_cids=($(echo "${cids[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' '))
 for cid in ${sorted_unique_cids[@]} ; do
     echo "Container ID: ${cid}"
     if [[ $kill -eq 1 ]] ; then
-    echo "Killing $cid"
-        docker kill $cid
+      echo "Killing $cid"
+      docker kill $cid
     fi
     docker inspect $cid | grep home | tr -s ' ' | head -1
 done
