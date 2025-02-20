@@ -17,7 +17,14 @@ while [[ $# -gt 0 ]] ; do
   shift
 done
 
-pids=$(/opt/rocm/bin/rocm-smi --showpids | egrep "^[0-9]" | awk '{print $1}')
+if command -v nvidia-smi &> /dev/null ; then
+    pids=$(nvidia-smi -q -d PIDS | grep "Process ID" | tr -s ' ' | cut -d: -f2)
+elif command -v rocm-smi &> /dev/null ; then
+    pids=$(/opt/rocm/bin/rocm-smi --showpids | egrep "^[0-9]" | awk '{print $1}')
+else
+    echo "No GPU found"
+    exit 1
+fi
 
 cids=()
 
