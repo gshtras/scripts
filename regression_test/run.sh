@@ -6,9 +6,9 @@ echo "Starting $(date)"
 export PYTORCH_ROCM_ARCH="gfx942"
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-rm -f /projects/docker_kill.log
+rm -f $HOME/Projects/docker_kill.log
 
-$SCRIPT_DIR/../docker_top.sh --kill | grep "Killing" | tee -a /projects/docker_kill.log
+$SCRIPT_DIR/../docker_top.sh --kill | grep "Killing" | tee $HOME/Projects/docker_kill.log
 
 cd $SCRIPT_DIR/../docker
 $SCRIPT_DIR/../docker/create.sh
@@ -21,7 +21,7 @@ while true; do
     if ! ps -p $pid > /dev/null; then
         break
     fi
-    $SCRIPT_DIR/../docker_top.sh -v regression --kill | grep "Killing" | tee -a /projects/docker_kill.log
+    $SCRIPT_DIR/../docker_top.sh -v regression --kill | grep "Killing" | tee -a $HOME/Projects/docker_kill.log
 done
 
 echo "Test finished"
