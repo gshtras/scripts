@@ -95,6 +95,8 @@ else
     exit 1
 fi
 
+docker pull $image || true
+
 full_cmd="docker run ${it} --rm ${gpu_args} -v /tmp/tmux-$(id -u):/tmp/tmux --mount type=bind,source=/home/gshtrasb/Projects,target=/projects --mount type=bind,source=${models_folder},target=/models --ulimit core=0:0 --ulimit memlock=-1:-1 $entrypoint $extra_args --cap-add=SYS_PTRACE $name_arg $image $command"
 if [[ $dry_run != 1 ]] ; then
 tmux rename-window "Docker:$name"
