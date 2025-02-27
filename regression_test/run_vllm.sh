@@ -94,9 +94,9 @@ echo "===Performance==="
 
 run_perf llama-2-70b-chat-hf 1 2048 128 8 float16
 
-for batch in 1 16 64 ; do
-for in in 128 1024 ; do
-for out in 1 128 1024 ; do
+for batch in 256 ; do
+for in in 1024 2048 ; do
+for out in 1 1024 2048 ; do
 for tp in 1 8 ; do
 for dtype in float16 bfloat16 ; do
 run_perf "Llama-3.1-8B-Instruct" $batch $in $out $tp $dtype

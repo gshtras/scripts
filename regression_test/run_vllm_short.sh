@@ -17,7 +17,7 @@ function run_perf()
         eager="--enforce-eager"
     fi
     misc=
-    if [[ $out != "1" ]] ; then
+    if [[ $out != "1" && ! $model =~ DeepSeek.* ]] ; then
         misc="--num-scheduler-steps 10"
     fi
     log_name=/projects/tmp/$(echo "${model}" | sed -e 's/\//_/g')_${batch}_${in}_${out}_${tp}_${dtype}.log
@@ -30,10 +30,11 @@ function run_corectness()
 {
     set +e
     model=$1
-    shift
-    echo $model
-    log_name=/projects/tmp/correctness_$(echo "${model}" | sed -e 's/\//_/g').log
-    python /projects/llm_test.py --model /models/$model $@ &> $log_name
+    dtype=$2
+    shift 2
+    echo ${model},${dtype}
+    log_name=/projects/tmp/correctness_$(echo "${model}" | sed -e 's/\//_/g')_${dtype}.log
+    python /projects/llm_test.py --model /models/$model --dtype $dtype $@ &> $log_name
     grep "Generated:" $log_name
     set -e
 }
@@ -42,10 +43,11 @@ function run_vision()
 {
     set +e
     model=$1
-    shift
-    echo $model
+    dtype=$2
+    shift 2
+    echo ${model},${dtype}
     log_name=/projects/tmp/vision_$(echo "${model}" | sed -e 's/\//_/g').log
-    python /projects/llm_test.py --model /models/$model --image-path /projects/image1.jpg --prompt "Describe this image" -tp 4 $@ &> $log_name
+    python /projects/llm_test.py --model /models/$model --image-path /projects/image1.jpg --prompt "Describe this image" --dtype $dtype -tp 4 $@ &> $log_name
     grep "Generated:" $log_name
     set -e
 }
@@ -73,18 +75,17 @@ pip show vllm |& grep "Version:"
 
 echo "===Correctness==="
 
-run_corectness Llama-3.1-8B-Instruct
-run_corectness Llama-3.1-405B-Instruct -tp 8
-run_corectness mistral-ai-models/Mixtral-8x22B-v0.1/ -tp 4
-run_corectness Llama-3.1-70B-Instruct-FP8-KV -tp 8 --kv-cache-dtype fp8
+run_corectness Llama-3.1-8B-Instruct float16
+run_corectness mistral-ai-models/Mixtral-8x22B-v0.1/ float16 -tp 4
+run_corectness Llama-3.1-70B-Instruct-FP8-KV float16 -tp 8 --kv-cache-dtype fp8
 export VLLM_USE_ROCM_FP8_FLASH_ATTN=1
-run_corectness Llama-3.1-8B-Instruct-FP8-QKV-Prob
+run_corectness Llama-3.1-8B-Instruct-FP8-QKV-Prob float16 -tp 8 --kv-cache-dtype fp8
 unset VLLM_USE_ROCM_FP8_FLASH_ATTN
 
 echo "===Vision==="
 
-run_vision Llama-3.2-90B-Vision-Instruct
-run_vision Llama-3.2-90B-Vision-Instruct-FP8-KV
+run_vision Llama-3.2-90B-Vision-Instruct float16
+run_vision Llama-3.2-90B-Vision-Instruct-FP8-KV float16
 
 echo "===Performance==="
 
@@ -116,6 +117,8 @@ done
 
 run_perf mistral-ai-models/Mixtral-8x22B-v0.1/ 16 1024 1024 8 float16
 run_perf mistral-ai-models/Mixtral-8x7B-Instruct-v0.1-FP8-KV/ 16 1024 1024 8 float16
+
+run_perf DeepSeek-R1 32 128 32 8 auto --trust-remote-code --max-model-len 32768
 
 echo "===P3L==="
 

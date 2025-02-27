@@ -175,7 +175,7 @@ def main():
         f.write("<h1>Archive</h1>")
         for file in sorted(
                 os.listdir(os.path.join(projects_path, "www-root",
-                                        "archive"))):
+                                        "archive")))[-15:]:
             if file.endswith(".html"):
                 f.write(
                     f"<a href='archive/{file}'>{file.replace('.html','')}</a><br>"
