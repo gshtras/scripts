@@ -59,7 +59,7 @@ fi
 # Can't docker build --pull in case it's a local image
 docker pull ${base} || true
 
-docker build -f Dockerfile.vllm \
+DOCKER_BUILDKIT=1 docker build -f Dockerfile.vllm \
     --build-arg "BASE_IMAGE=${base}" \
     --build-arg "UID=$(id -u)" \
     --build-arg "GID=$(id -g)" \

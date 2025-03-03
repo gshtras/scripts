@@ -11,7 +11,9 @@ ARG TORCH_CUDA_ARCH_LIST=9.0
 RUN addgroup --gid $GID $USERNAME
 RUN if command -v rocm-smi ; then grep render:x /etc/group && perl -p -i -e "s/^render:x:[0-9]+/render:x:${RENDER_GID}/g" /etc/group || echo ; fi
 RUN if command -v rocm-smi ; then grep render:x:$RENDER_GID /etc/group || addgroup --gid $RENDER_GID render ; fi
-RUN adduser --disabled-password --gid $GID --uid $UID --gecos '' $USERNAME
+RUN useradd -l -u $UID -g $GID $USERNAME
+RUN mkdir -p /home/$USERNAME && chown -R $USERNAME:$USERNAME /home/$USERNAME
+#RUN adduser --disabled-password --gid $GID --uid $UID --gecos '' $USERNAME
 RUN adduser $USERNAME sudo
 RUN if command -v rocm-smi ; then adduser $USERNAME render ; fi
 RUN echo "$USERNAME    ALL=(ALL:ALL) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME
