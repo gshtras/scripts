@@ -247,9 +247,10 @@ def main(args: argparse.Namespace):
             text = out.outputs[0].text.replace('\n', ' ')
             print(f"Generated: {text}")
 
-    print(
-        f"{num_tokens} tokens. {num_tokens / batch_size} on average. {num_tokens / elapsed_time:.2f} tokens/s. {elapsed_time} seconds"
-    )
+    if args.extra_stats:
+        print(
+            f"{num_tokens} tokens. {num_tokens / batch_size} on average. {num_tokens / elapsed_time:.2f} tokens/s. {elapsed_time} seconds"
+        )
 
 
 if __name__ == "__main__":
@@ -270,6 +271,7 @@ if __name__ == "__main__":
     parser.add_argument('--rpd-path', type=str, default=None)
     parser.add_argument('--image-path', type=str, default=None)
     parser.add_argument('--serverlike', action='store_true')
+    parser.add_argument('--extra-stats', action='store_true')
 
     parser = EngineArgs.add_cli_args(parser)
     args = parser.parse_args()
