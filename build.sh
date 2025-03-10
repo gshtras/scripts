@@ -36,7 +36,14 @@ if [[ $(whoami) == "gshtrasb" ]] ; then
     prefix_arg=" --prefix ~/.local"
 fi
 if [[ $IS_ROCM == 1 ]] ; then
-    pip install -r requirements-rocm.txt
+    if [[ -f requirements-rocm.txt ]] ; then
+        pip install -r requirements-rocm.txt
+    elif [[ -f requirements/rocm.txt ]] ; then
+        pip install -r requirements/rocm.txt
+    else
+        echo "No requirements-rocm.txt found"
+        exit 1
+    fi    
 fi
 python3 setup.py develop ${prefix_arg}
 if [[ $gradlib == 1 ]] ; then

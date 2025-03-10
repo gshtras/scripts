@@ -17,6 +17,7 @@ done
 name=$name$suffix
 entrypoint=
 models_folder=/data/models
+pull=1
 while [[ $# -gt 0 ]] ; do
   i=$1
   case $i in
@@ -52,6 +53,9 @@ while [[ $# -gt 0 ]] ; do
   -e|--entrypoint)
     entrypoint="--entrypoint $2"
     shift
+  ;;
+  --nopull)
+    pull=0
   ;;
   *)
     image=$1
@@ -95,7 +99,9 @@ else
     exit 1
 fi
 
-docker pull $image || true
+if [[ $pull == 1 ]] ; then
+  docker pull $image
+fi
 
 full_cmd="docker run ${it} --rm ${gpu_args} -v /tmp/tmux-$(id -u):/tmp/tmux --mount type=bind,source=${HOME}/Projects,target=/projects --mount type=bind,source=${models_folder},target=/models --ulimit core=0:0 --ulimit memlock=-1:-1 $entrypoint $extra_args --cap-add=SYS_PTRACE $name_arg $image $command"
 if [[ $dry_run != 1 ]] ; then
