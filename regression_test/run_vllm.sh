@@ -21,7 +21,10 @@ function run_perf()
         misc="--num-scheduler-steps 10"
     fi
     log_name=/projects/tmp/$(echo "${model}" | sed -e 's/\//_/g')_${batch}_${in}_${out}_${tp}_${dtype}.log
-    python benchmarks/benchmark_latency.py --enable-chunked-prefill False --load-format dummy --dtype $dtype --num-iters-warmup 2 --num-iters 5 --batch-size $batch $misc --input-len $in --output-len $out --model /models/$model -tp $tp $eager $@ &> $log_name
+    timeout 40m python benchmarks/benchmark_latency.py --enable-chunked-prefill False --load-format dummy --dtype $dtype --num-iters-warmup 2 --num-iters 5 --batch-size $batch $misc --input-len $in --output-len $out --model /models/$model -tp $tp $eager $@ &> $log_name
+    if [[ $? -eq 124 ]] ; then
+        echo "Timeout" &> $log_name
+    fi    
     echo "${model},${batch},${in},${out},${tp},${dtype},$(cat $log_name | grep "Avg latency:" | awk '{print $3}')"
     set -e
 }
@@ -34,7 +37,10 @@ function run_corectness()
     shift 2
     echo ${model},${dtype}
     log_name=/projects/tmp/correctness_$(echo "${model}" | sed -e 's/\//_/g')_${dtype}.log
-    python /projects/llm_test.py --model /models/$model --dtype $dtype $@ &> $log_name
+    timeout 20m python /projects/llm_test.py --model /models/$model --dtype $dtype $@ &> $log_name
+    if [[ $? -eq 124 ]] ; then
+        echo "Timeout" &> $log_name
+    fi
     grep "Generated:" $log_name
     set -e
 }
@@ -47,7 +53,10 @@ function run_vision()
     shift 2
     echo ${model},${dtype}
     log_name=/projects/tmp/vision_$(echo "${model}" | sed -e 's/\//_/g').log
-    python /projects/llm_test.py --model /models/$model --image-path /projects/image1.jpg --prompt "Describe this image" --dtype $dtype -tp 4 $@ &> $log_name
+    timeout 20m python /projects/llm_test.py --model /models/$model --image-path /projects/image1.jpg --prompt "Describe this image" --dtype $dtype -tp 4 $@ &> $log_name
+    if [[ $? -eq 124 ]] ; then
+        echo "Timeout" &> $log_name
+    fi
     grep "Generated:" $log_name
     set -e
 }
@@ -62,7 +71,7 @@ function run_p3l()
     shift 4
     echo ${model},${context},${sample},${patch}
     log_name=/projects/tmp/P3L_$(echo "${model}" | sed -e 's/\//_/g')_${batch}_${context}_${sample}_${patch}.log
-    python benchmarks/P3L.py --model /models/$model --context-size "$context" --sample-size "$sample" --patch-size $patch $@ &> $log_name
+    run_with_timeout python benchmarks/P3L.py --model /models/$model --context-size "$context" --sample-size "$sample" --patch-size $patch $@ &> $log_name
     echo $(cat $log_name |& egrep "Integral Cross|Average Cross|PPL")
     set -e
 }
