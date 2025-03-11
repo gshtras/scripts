@@ -42,7 +42,7 @@ done
 
 rm -f requirements-lint.txt* bundle.tgz
 
-wget "https://raw.githubusercontent.com/${vllm_repo}/vllm/refs/heads/main/requirements-lint.txt"
+wget "https://raw.githubusercontent.com/ROCm/vllm/refs/heads/main/requirements/lint.txt" -O requirements-lint.txt
 
 if [[ -e ~/Projects/docker_bundle.tgz ]] ; then
     cp ~/Projects/docker_bundle.tgz bundle.tgz
