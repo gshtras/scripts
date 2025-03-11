@@ -71,7 +71,7 @@ function run_p3l()
     shift 4
     echo ${model},${context},${sample},${patch}
     log_name=/projects/tmp/P3L_$(echo "${model}" | sed -e 's/\//_/g')_${batch}_${context}_${sample}_${patch}.log
-    run_with_timeout python benchmarks/P3L.py --model /models/$model --context-size "$context" --sample-size "$sample" --patch-size $patch $@ &> $log_name
+    timeout 30m python benchmarks/P3L.py --model /models/$model --context-size "$context" --sample-size "$sample" --patch-size $patch $@ &> $log_name
     echo $(cat $log_name |& egrep "Integral Cross|Average Cross|PPL")
     set -e
 }
