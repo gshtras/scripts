@@ -225,5 +225,5 @@ def update_postgres():
 
 
 if __name__ == '__main__':
-    #main()
+    main()
     update_postgres()
