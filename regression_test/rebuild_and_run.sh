@@ -10,4 +10,3 @@ git clone https://github.com/rocm/vllm
 cd vllm
 $SCRIPT_DIR/../rebuild.sh --cython |& tee /projects/build_regression.log
 $SCRIPT_DIR/run_vllm.sh |& tee /projects/result_regression.log
-python $SCRIPT_DIR/process.py

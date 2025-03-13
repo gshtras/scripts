@@ -25,4 +25,8 @@ while true; do
     $SCRIPT_DIR/../docker_top.sh -v regression --kill |& grep "Killing" | tee -a $HOME/Projects/docker_kill.log
 done
 
+cd $SCRIPT_DIR
+python process.py
+cd -
+
 echo "Test finished"

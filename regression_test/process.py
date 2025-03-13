@@ -86,15 +86,16 @@ def main():
             df = pd.concat([df, new_df], ignore_index=True)
     df.to_csv(os.path.join(projects_path, 'regression.csv'), index=False)
 
-    combos = df.loc[:, ["model", "batch", "input_len", "output_len", "tp", "dtype"
-                        ]].drop_duplicates().sort_values(by=[
-                            "dtype",
-                            "model",
-                            "tp",
-                            "batch",
-                            "input_len",
-                            "output_len",
-                        ])
+    combos = df.loc[:, [
+        "model", "batch", "input_len", "output_len", "tp", "dtype"
+    ]].drop_duplicates().sort_values(by=[
+        "dtype",
+        "model",
+        "tp",
+        "batch",
+        "input_len",
+        "output_len",
+    ])
     with open(os.path.join(projects_path, "www-root", "index.html"),
               "w") as f, open(
                   os.path.join(projects_path, "www-root", "archive",
@@ -123,7 +124,8 @@ def main():
                                & (df['batch'] == combo['batch']) &
                                (df['input_len'] == combo['input_len']) &
                                (df['output_len'] == combo['output_len']) &
-                               (df['tp'] == combo['tp']) & (df['dtype'] == combo['dtype'])]
+                               (df['tp'] == combo['tp']) &
+                               (df['dtype'] == combo['dtype'])]
             if len(matching_rows) == 0:
                 continue
             model_row = f"<tr><td>{combo['model']}</td><td class='num'>{combo['batch']}</td><td class='num'>{combo['input_len']}</td><td class='num'>{combo['output_len']}</td><td class='num'>{combo['tp']}</td><td>{combo['dtype']}</td>"
@@ -183,5 +185,45 @@ def main():
         archive_f.write(f"</body></html>")
 
 
+def update_postgres():
+    import psycopg2
+    from dotenv import load_dotenv
+    load_dotenv()
+    connection = psycopg2.connect(database=os.getenv("DASHBOARD_DATABASE"),
+                                  user=os.getenv("DASHBOARD_USER"),
+                                  password=os.getenv("DASHBOARD_PASSWORD"),
+                                  host=os.getenv("DASHBOARD_HOST"),
+                                  port=os.getenv("DASHBOARD_PORT"))
+
+    cursor = connection.cursor()
+    projects_path = find_projects()
+    df = pd.read_csv(os.path.join(projects_path, 'regression.csv'))
+    for index, row in df.iterrows():
+        #print(row)
+        cursor.execute(
+            'INSERT INTO "Model" (name) VALUES (%s) ON CONFLICT DO NOTHING',
+            (row['model'], ))
+        cursor.execute(
+            'INSERT INTO "MeasurementConfig" (dtype, "batchSize", "inputLength", "outputLength", tp, "modelName") VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING',
+            (row['dtype'], row['batch'], row['input_len'], row['output_len'],
+             row['tp'], row['model']))
+        cursor.execute('COMMIT')
+        cursor.execute(
+            'SELECT id from "MeasurementConfig" WHERE dtype=%s AND "batchSize"=%s AND "inputLength"=%s AND "outputLength"=%s AND tp=%s AND "modelName"=%s',
+            (row['dtype'], row['batch'], row['input_len'], row['output_len'],
+             row['tp'], row['model']))
+        data = cursor.fetchone()
+        cursor.execute(
+            '''
+            INSERT INTO "ModelMeasurement" 
+            ("createdAt", "measurementConfigId", latency) 
+            VALUES 
+            (%s, %s, %s) 
+            ON CONFLICT DO NOTHING
+            ''', (row['date'], data[0], row['latency']))
+        cursor.execute('COMMIT')
+
+
 if __name__ == '__main__':
-    main()
+    #main()
+    update_postgres()
