@@ -26,7 +26,7 @@ while true; do
 done
 
 cd $SCRIPT_DIR
-python process.py
+python3 process.py
 cd -
 
 echo "Test finished"

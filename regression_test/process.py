@@ -1,5 +1,22 @@
+from enum import Enum
 import pandas as pd
 import os
+
+import psycopg2
+from dotenv import load_dotenv
+
+load_dotenv()
+connection = psycopg2.connect(database=os.getenv("DASHBOARD_DATABASE"),
+                              user=os.getenv("DASHBOARD_USER"),
+                              password=os.getenv("DASHBOARD_PASSWORD"),
+                              host=os.getenv("DASHBOARD_HOST"),
+                              port=os.getenv("DASHBOARD_PORT"))
+
+cursor = connection.cursor()
+
+
+def fix_model_name(model: str):
+    return model.strip('/').replace('/', '_')
 
 
 def find_projects():
@@ -10,6 +27,11 @@ def find_projects():
     if os.path.exists(projects_path):
         return projects_path
     raise Exception("Projects path not found")
+
+
+class ParseState(Enum):
+    ExpectModel = 0
+    ExpectResult = 1
 
 
 def main():
@@ -27,27 +49,97 @@ def main():
             'latency'
         ])
     date = lines[0].strip()
-    version = lines[1].strip()
+    version = lines[1].strip().split('Version: ')[-1]
     found_pref = False
     found_correctness = False
     found_p3l = False
     correctness_output = ""
     p3l_output = ""
+    parse_state = ParseState.ExpectModel
+    model_str = ""
+
     for line in lines:
-        if 'Correctness' in line:
-            found_correctness = True
+        if "===Vision===" in line:
             continue
-        if 'Performance' in line:
+        if '===Correctness===' in line:
+            found_correctness = True
+            parse_state = ParseState.ExpectModel
+            continue
+        if '===Performance===' in line:
             found_pref = True
             continue
-        if "P3L" in line:
+        if "===P3L===" in line:
             found_p3l = True
+            parse_state = ParseState.ExpectModel
             continue
         if found_p3l:
             p3l_output += line.replace("\n", "<br/>")
+            if parse_state == ParseState.ExpectModel:
+                if "Integral Cross-Entropy=" not in line:
+                    parse_state = ParseState.ExpectResult
+                    model_str = line.strip()
+            elif parse_state == ParseState.ExpectResult:
+                parse_state = ParseState.ExpectModel
+                if "Integral Cross-Entropy=" in line:
+                    cursor.execute(
+                        'INSERT INTO "Model" (name, path) VALUES (%s, %s) ON CONFLICT DO NOTHING',
+                        ((fix_model_name(model_str.split(',')[0]),
+                          model_str.split(',')[0])))
+                    cursor.execute(
+                        '''
+                        INSERT INTO "P3LConfig" ("modelName", "contextLen", "sampleSize", "patchSize", dtype)
+                        VALUES (%s, %s, %s, %s, %s)
+                        ON CONFLICT DO NOTHING
+                        ''', (fix_model_name(model_str.split(',')[0]), model_str.split(',')[1],
+                              model_str.split(',')[2], model_str.split(',')[3],
+                              'auto'))
+                    cursor.execute('COMMIT')
+                    cursor.execute(
+                        'SELECT id from "P3LConfig" WHERE "modelName"=%s AND "contextLen"=%s AND "sampleSize"=%s AND "patchSize"=%s AND dtype=%s',
+                        (fix_model_name(model_str.split(',')[0]),
+                         model_str.split(',')[1], model_str.split(',')[2],
+                         model_str.split(',')[3], 'auto'))
+                    data = cursor.fetchone()
+                    cursor.execute(
+                        '''
+                        INSERT INTO "P3LResult" ("p3lConfigId", "createdAt", "P3L", "vllmVersion")
+                          VALUES (%s, %s, %s, %s)
+                          ON CONFLICT DO NOTHING
+                                   ''',
+                        (data[0], date, line.split('PPL=')[1], version))
+                    cursor.execute('COMMIT')
             continue
         if found_correctness and not found_pref:
             correctness_output += line.replace("\n", "</p><p>")
+            if parse_state == ParseState.ExpectModel:
+                if "Generated:" not in line:
+                    parse_state = ParseState.ExpectResult
+                    model_str = line.strip()
+            elif parse_state == ParseState.ExpectResult:
+                parse_state = ParseState.ExpectModel
+                if "Generated: " in line:
+                    cursor.execute(
+                        'INSERT INTO "Model" (name, path) VALUES (%s, %s) ON CONFLICT DO NOTHING',
+                        ((fix_model_name(model_str.split(',')[0]),
+                          model_str.split(',')[0])))
+                    cursor.execute(
+                        '''
+                        INSERT INTO "CorrectnessConfig" ("modelName", dtype) VALUES (%s, %s) ON CONFLICT DO NOTHING
+                                ''', (fix_model_name(
+                            model_str.split(',')[0]), model_str.split(',')[1]))
+                    cursor.execute('COMMIT')
+                    cursor.execute(
+                        'SELECT id from "CorrectnessConfig" WHERE "modelName"=%s AND dtype=%s',
+                        (fix_model_name(
+                            model_str.split(',')[0]), model_str.split(',')[1]))
+                    data = cursor.fetchone()
+                    cursor.execute(
+                        '''
+                        INSERT INTO "CorrectnessResult" ("correctnessConfigId", "createdAt", generated, "vllmVersion") VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING
+                                   ''',
+                        (data[0], date, line.split('Generated: ')[1], version))
+                    cursor.execute('COMMIT')
+            continue
         if not found_pref:
             continue
 
@@ -68,6 +160,27 @@ def main():
             latency = str(round(float(latency.strip()), 4))
         except:
             continue
+
+        cursor.execute(
+            'INSERT INTO "Model" (name, path) VALUES (%s, %s) ON CONFLICT DO NOTHING',
+            (fix_model_name(model), model))
+        cursor.execute(
+            'INSERT INTO "PerformanceConfig" (dtype, "batchSize", "inputLength", "outputLength", tp, "modelName") VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING',
+            (dtype, batch, input_len, output_len, tp, fix_model_name(model)))
+        cursor.execute('COMMIT')
+        cursor.execute(
+            'SELECT id from "PerformanceConfig" WHERE dtype=%s AND "batchSize"=%s AND "inputLength"=%s AND "outputLength"=%s AND tp=%s AND "modelName"=%s',
+            (dtype, batch, input_len, output_len, tp, fix_model_name(model)))
+        data = cursor.fetchone()
+        cursor.execute(
+            '''
+            INSERT INTO "PerformanceResult" 
+            ("createdAt", "vllmVersion", "performanceConfigId", latency) 
+            VALUES 
+            (%s, %s, %s, %s) 
+            ON CONFLICT DO NOTHING
+            ''', (date, version, data[0], latency))
+        cursor.execute('COMMIT')
 
         new_df = pd.DataFrame({
             'date': [date],
@@ -185,45 +298,5 @@ def main():
         archive_f.write(f"</body></html>")
 
 
-def update_postgres():
-    import psycopg2
-    from dotenv import load_dotenv
-    load_dotenv()
-    connection = psycopg2.connect(database=os.getenv("DASHBOARD_DATABASE"),
-                                  user=os.getenv("DASHBOARD_USER"),
-                                  password=os.getenv("DASHBOARD_PASSWORD"),
-                                  host=os.getenv("DASHBOARD_HOST"),
-                                  port=os.getenv("DASHBOARD_PORT"))
-
-    cursor = connection.cursor()
-    projects_path = find_projects()
-    df = pd.read_csv(os.path.join(projects_path, 'regression.csv'))
-    for index, row in df.iterrows():
-        #print(row)
-        cursor.execute(
-            'INSERT INTO "Model" (name) VALUES (%s) ON CONFLICT DO NOTHING',
-            (row['model'], ))
-        cursor.execute(
-            'INSERT INTO "MeasurementConfig" (dtype, "batchSize", "inputLength", "outputLength", tp, "modelName") VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING',
-            (row['dtype'], row['batch'], row['input_len'], row['output_len'],
-             row['tp'], row['model']))
-        cursor.execute('COMMIT')
-        cursor.execute(
-            'SELECT id from "MeasurementConfig" WHERE dtype=%s AND "batchSize"=%s AND "inputLength"=%s AND "outputLength"=%s AND tp=%s AND "modelName"=%s',
-            (row['dtype'], row['batch'], row['input_len'], row['output_len'],
-             row['tp'], row['model']))
-        data = cursor.fetchone()
-        cursor.execute(
-            '''
-            INSERT INTO "ModelMeasurement" 
-            ("createdAt", "measurementConfigId", latency) 
-            VALUES 
-            (%s, %s, %s) 
-            ON CONFLICT DO NOTHING
-            ''', (row['date'], data[0], row['latency']))
-        cursor.execute('COMMIT')
-
-
 if __name__ == '__main__':
     main()
-    update_postgres()
