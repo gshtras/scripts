@@ -246,6 +246,10 @@ def main(args: argparse.Namespace):
             print("===========")
             text = out.outputs[0].text.replace('\n', ' ')
             print(f"Generated: {text}")
+            if args.output_json:
+                import json
+                with open(args.output_json, 'w') as f:
+                    json.dump({'generated': text}, f)
 
     if args.extra_stats:
         print(
@@ -272,6 +276,7 @@ if __name__ == "__main__":
     parser.add_argument('--image-path', type=str, default=None)
     parser.add_argument('--serverlike', action='store_true')
     parser.add_argument('--extra-stats', action='store_true')
+    parser.add_argument('--output-json', type=str, default=None)
 
     parser = EngineArgs.add_cli_args(parser)
     args = parser.parse_args()
