@@ -29,8 +29,7 @@ RUN sudo apt update && sudo apt install -y tmux zsh less curl bc vim psmisc htop
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && \
     cd $HOME && tar xf bundle.tgz
 COPY requirements-lint.txt /home/$USERNAME
-RUN sudo pip uninstall -y pillow fsspec \
-    && pip install -r /home/$USERNAME/requirements-lint.txt && pip install simple_term_menu setuptools_scm
+RUN pip install -r /home/$USERNAME/requirements-lint.txt && pip install simple_term_menu setuptools_scm
 ENV PYTORCH_ROCM_ARCH=${PYTORCH_ROCM_ARCH}
 ENV TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST}
 RUN sudo chown -R ${USERNAME}:${USERNAME} /usr/local/lib/python3.12/dist-packages/aiter || true

@@ -3,7 +3,7 @@
 dry_run=0
 interactive=0
 grep_value=
-command=
+cmd=
 it=" -it"
 USER=${USER:-$(whoami)}
 image=${USER}_vllm
@@ -38,8 +38,8 @@ while [[ $# -gt 0 ]] ; do
   --noit)
     it=
   ;;
-  -c|--command)
-    command="$2"
+  -c|--cmd)
+    cmd="$2"
     shift
   ;;
   --shmem)
@@ -57,12 +57,18 @@ while [[ $# -gt 0 ]] ; do
   --nopull)
     pull=0
   ;;
+  --)
+    shift
+    cmd="$@"
+    break
+  ;;
   *)
     image=$1
   ;;
   esac
   shift
 done
+echo $command
 
 if [[ $interactive == 1 ]] ; then
     grep_arg=
@@ -103,10 +109,14 @@ if [[ $pull == 1 ]] ; then
   docker pull $image
 fi
 
-full_cmd="docker run ${it} --rm ${gpu_args} -v /tmp/tmux-$(id -u):/tmp/tmux --mount type=bind,source=${HOME}/Projects,target=/projects --mount type=bind,source=${models_folder},target=/models --ulimit core=0:0 --ulimit memlock=-1:-1 $entrypoint $extra_args --cap-add=SYS_PTRACE $name_arg $image $command"
+full_cmd="docker run ${it} --rm ${gpu_args} -v /tmp/tmux-$(id -u):/tmp/tmux --mount type=bind,source=${HOME}/Projects,target=/projects --mount type=bind,source=${models_folder},target=/models --ulimit core=0:0 --ulimit memlock=-1:-1 $entrypoint $extra_args --cap-add=SYS_PTRACE $name_arg $image"
 if [[ $dry_run != 1 ]] ; then
 tmux rename-window "Docker:$name"
-${full_cmd}
+if [[ $cmd == "" ]] ; then
+  ${full_cmd}
+else
+  ${full_cmd} bash -c "$cmd"
+fi
 tmux setw automatic-rename on
 echo "Finished docker image $image"
 else

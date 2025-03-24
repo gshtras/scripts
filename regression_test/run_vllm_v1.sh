@@ -7,4 +7,4 @@ cd $SCRIPT_DIR
 
 pip install -r requirements.txt
 
-python run_configs.py --vllm-path ${HOME}/vllm
+python v2/run_configs.py --vllm-path ${HOME}/vllm
