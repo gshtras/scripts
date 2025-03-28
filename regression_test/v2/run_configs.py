@@ -33,10 +33,15 @@ projects_path = find_projects()
 command_prefix = f'{projects_path}/scripts/docker.sh vllm_regression --nopull --noit -n regression -c "'
 command_suffix = '"'
 
+def print_stream(stream):
+    if not stream:
+        return
+    for line in stream.readlines():
+        print(line.decode('utf-8').strip())
 
 def run_command(command,
                 env,
-                timeout=30 * 60,
+                timeout=30,
                 ignore_failure=False,
                 verbose=False):
     env_dict = dict(item.split('=') for item in env) if '=' in env else {}
@@ -48,20 +53,24 @@ def run_command(command,
         stderr=subprocess.PIPE if not verbose else None,
     )
     try:
-        output.wait(timeout=timeout)
+        output.wait(timeout=timeout * 60)
     except subprocess.TimeoutExpired:
         output.terminate()
         print("Run timed out")
-        print(f"OUT: {output.stdout}")
-        print(f"ERR: {output.stderr}")
+        print("OUT:")
+        print_stream(output.stdout)
+        print("ERR:")
+        print_stream(output.stderr)
         return False
     if ignore_failure:
         return True
 
     if output.returncode != 0:
         print("Run failed")
-        print(f"OUT: {output.stdout}")
-        print(f"ERR: {output.stderr}")
+        print("OUT:")
+        print_stream(output.stdout)
+        print("ERR:")
+        print_stream(output.stderr)
         return False
     else:
         print("Run succeeded")
@@ -92,11 +101,11 @@ def getEnabledConfigs(args: argparse.Namespace):
 def run_performance(args: argparse.Namespace):
     print("Starting performance runs")
     cursor.execute(
-        f'''SELECT id, dtype, "batchSize", "inputLength", "outputLength", tp, "modelName", environment, "extraParams" FROM "PerformanceConfig" {getEnabledConfigs(args)}'''
+        f'''SELECT id, dtype, "batchSize", "inputLength", "outputLength", tp, "modelName", environment, timeout, "extraParams" FROM "PerformanceConfig" {getEnabledConfigs(args)}'''
     )
     data = cursor.fetchall()
     for row in tqdm(data):
-        id, dtype, batch, input, output, tp, model, env, extra = row
+        id, dtype, batch, input, output, tp, model, env, timeout, extra = row
         cursor.execute('''select path from "Model" where name = %s''',
                        (model, ))
         model_path = cursor.fetchone()[0]
@@ -105,36 +114,36 @@ def run_performance(args: argparse.Namespace):
         command = f"{command_prefix} python {benchmark_path} --model /models/{model_path} --dtype {dtype} --batch-size {batch} --input-len {input} --output-len {output} -tp {tp} {extra_args}"
         if output == 1:
             command += " --enforce-eager"
-        else:
+        elif "DeepSeek" not in model:
             command += " --num-scheduler-steps 10"
         command += f" --output-json /projects/tmp/{model}.json --load-format dummy --num-iters-warmup 2 --num-iters 5"
         command += command_suffix
         print(command, flush=True)
-        res = run_command(command, env)
-        if not res:
-            continue
         try:
+            res = run_command(command, env, timeout=timeout)
+            if not res:
+                continue
             j = json.load(open(f"{projects_path}/tmp/{model}.json"))
-        except FileNotFoundError:
-            print("Missing result")
+            print(j['avg_latency'])
+            if not args.no_dashboard:
+                cursor.execute(
+                    '''INSERT INTO "PerformanceResult" ("performanceConfigId", "createdAt", latency, "vllmVersion") VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING''',
+                    (id, today_date, j['avg_latency'], vllm_version))
+                cursor.execute('COMMIT')
+        except Exception as e:
+            print(f"Missing result: {e}")
             continue
-        print(j['avg_latency'])
-        if not args.no_dashboard:
-            cursor.execute(
-                '''INSERT INTO "PerformanceResult" ("performanceConfigId", "createdAt", latency, "vllmVersion") VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING''',
-                (id, today_date, j['avg_latency'], vllm_version))
-            cursor.execute('COMMIT')
         cleanup()
 
 
 def run_correctness(args: argparse.Namespace):
     print("Starting correctness runs", flush=True)
     cursor.execute(
-        f'''SELECT id, dtype, "modelName", environment, "extraParams" FROM "CorrectnessConfig" {getEnabledConfigs(args)}'''
+        f'''SELECT id, dtype, "modelName", timeout, environment, "extraParams" FROM "CorrectnessConfig" {getEnabledConfigs(args)}'''
     )
     data = cursor.fetchall()
     for row in tqdm(data):
-        id, dtype, model, env, extra = row
+        id, dtype, model, timeout, env, extra = row
         cursor.execute('''select path from "Model" where name = %s''',
                        (model, ))
         model_path = cursor.fetchone()[0]
@@ -143,31 +152,31 @@ def run_correctness(args: argparse.Namespace):
         command += f" --output-json /projects/tmp/{model}.json"
         command += command_suffix
         print(command, flush=True)
-        res = run_command(command, env)
-        if not res:
-            continue
         try:
+            res = run_command(command, env, timeout=timeout)
+            if not res:
+                continue
             j = json.load(open(f"{projects_path}/tmp/{model}.json"))
-        except FileNotFoundError:
-            print("Missing result")
+            print(j['generated'])
+            if not args.no_dashboard:
+                cursor.execute(
+                    '''INSERT INTO "CorrectnessResult" ("correctnessConfigId", "createdAt", generated, "vllmVersion") VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING''',
+                    (id, today_date, j['generated'], vllm_version))
+                cursor.execute('COMMIT')
+        except Exception as e:
+            print(f"Missing result: {e}")
             continue
-        print(j['generated'])
-        if not args.no_dashboard:
-            cursor.execute(
-                '''INSERT INTO "CorrectnessResult" ("correctnessConfigId", "createdAt", generated, "vllmVersion") VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING''',
-                (id, today_date, j['generated'], vllm_version))
-            cursor.execute('COMMIT')
         cleanup()
 
 
 def run_p3l(args: argparse.Namespace):
     print("Starting P3L runs")
     cursor.execute(
-        f'''SELECT id, dtype, "modelName", "contextLen", "sampleSize", "patchSize", environment, "extraParams" FROM "P3LConfig" {getEnabledConfigs(args)}'''
+        f'''SELECT id, dtype, "modelName", "contextLen", "sampleSize", "patchSize", timeout, environment, "extraParams" FROM "P3LConfig" {getEnabledConfigs(args)}'''
     )
     data = cursor.fetchall()
     for row in tqdm(data):
-        id, dtype, model, contextLen, sampleSize, patchSize, env, extra = row
+        id, dtype, model, contextLen, sampleSize, patchSize, timeout, env, extra = row
         cursor.execute('''select path from "Model" where name = %s''',
                        (model, ))
         model_path = cursor.fetchone()[0]
@@ -177,20 +186,20 @@ def run_p3l(args: argparse.Namespace):
         command += f" --output-json /projects/tmp/{model}.json"
         command += command_suffix
         print(command, flush=True)
-        res = run_command(command, env)
-        if not res:
-            continue
         try:
+            res = run_command(command, env, timeout=timeout)
+            if not res:
+                continue
             j = json.load(open(f"{projects_path}/tmp/{model}.json"))
-        except FileNotFoundError:
-            print("Missing result")
+            print(j['ppl'])
+            if not args.no_dashboard:
+                cursor.execute(
+                    '''INSERT INTO "P3LResult" ("p3lConfigId", "createdAt", "P3L", "vllmVersion") VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING''',
+                    (id, today_date, j['ppl'], vllm_version))
+                cursor.execute('COMMIT')
+        except Exception as e:
+            print(f"Missing result: {e}")
             continue
-        print(j['ppl'])
-        if not args.no_dashboard:
-            cursor.execute(
-                '''INSERT INTO "P3LResult" ("p3lConfigId", "createdAt", "P3L", "vllmVersion") VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING''',
-                (id, today_date, j['ppl'], vllm_version))
-            cursor.execute('COMMIT')
         cleanup()
 
 
