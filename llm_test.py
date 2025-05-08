@@ -10,8 +10,8 @@ import vllm.envs as envs
 from vllm.engine.arg_utils import EngineArgs
 from vllm import LLM, SamplingParams
 from vllm.inputs.data import TokensPrompt
+from vllm.utils import FlexibleArgumentParser
 from PIL import Image
-
 
 class LlmKwargs(dict):
 
@@ -181,6 +181,8 @@ def recreate_trace(llm_args: LlmKwargs):
 
 
 def main(args: argparse.Namespace):
+    if args.profile:
+        os.environ["VLLM_TORCH_PROFILER_DIR"] = args.profile_dir
 
     @contextmanager
     def rpd_profiler_context():
@@ -234,8 +236,12 @@ def main(args: argparse.Namespace):
                         if text:
                             print(text)
         else:
+            if args.profile:
+                llm.start_profile()
             outs = llm.generate([prompt_param] * batch_size,
                                 sampling_params=llm_args.sampling_params)
+            if args.profile:
+                llm.stop_profile()
     end_time = time.perf_counter()
     elapsed_time = end_time - start_time
 
@@ -258,7 +264,7 @@ def main(args: argparse.Namespace):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='LLM Test much')
+    parser = FlexibleArgumentParser(description='LLM Test much')
     parser.add_argument('-i',
                         '--interactive',
                         action='store_true',
@@ -277,6 +283,8 @@ if __name__ == "__main__":
     parser.add_argument('--serverlike', action='store_true')
     parser.add_argument('--extra-stats', action='store_true')
     parser.add_argument('--output-json', type=str, default=None)
+    parser.add_argument('--profile', action='store_true')
+    parser.add_argument('--profile-dir', type=str, default='./vllm_profile')
 
     parser = EngineArgs.add_cli_args(parser)
     args = parser.parse_args()
