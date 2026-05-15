@@ -7,7 +7,10 @@ import time
 import uvloop
 from vllm.engine.arg_utils import AsyncEngineArgs, EngineArgs
 from vllm import LLM, SamplingParams
-from vllm.inputs.data import PromptType, TokensPrompt
+try:
+    from vllm.inputs import PromptType, TokensPrompt
+except:
+    from vllm.inputs.data import PromptType, TokensPrompt
 try:
     from vllm.utils import FlexibleArgumentParser
 except ImportError:
@@ -251,7 +254,10 @@ def main(args: argparse.Namespace):
             run_async(llm_args.async_engine_args, llm_args.sampling_params,
                       prompts))
     elif llm_args.serverlike:
-        llm = LLM(**dataclasses.asdict(llm_args.engine_args))
+        if hasattr(LLM, "from_engine_args"):
+            llm = LLM.from_engine_args(llm_args.engine_args)
+        else:
+            llm = LLM(**dataclasses.asdict(llm_args.engine_args))
         reqs = 0
         llm._add_request(prompts[reqs], llm_args.sampling_params)
         while llm.llm_engine.has_unfinished_requests():
@@ -266,7 +272,10 @@ def main(args: argparse.Namespace):
                     if text:
                         print(text)
     else:
-        llm = LLM(**dataclasses.asdict(llm_args.engine_args))
+        if hasattr(LLM, "from_engine_args"):
+            llm = LLM.from_engine_args(llm_args.engine_args)
+        else:
+            llm = LLM(**dataclasses.asdict(llm_args.engine_args))
         if args.profile:
             llm.start_profile()
         outs = llm.generate(prompts, sampling_params=llm_args.sampling_params)
