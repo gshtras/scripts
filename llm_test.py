@@ -1,67 +1,73 @@
 import argparse
 import dataclasses
+import json
 import os
-import sqlite3
 import time
-from contextlib import contextmanager, nullcontext
-from typing import Any
 
-import vllm.envs as envs
-from vllm.engine.arg_utils import EngineArgs
+import uvloop
+from vllm.engine.arg_utils import AsyncEngineArgs, EngineArgs
 from vllm import LLM, SamplingParams
-from vllm.inputs.data import TokensPrompt
-from vllm.utils import FlexibleArgumentParser
+from vllm.inputs.data import PromptType, TokensPrompt
+try:
+    from vllm.utils import FlexibleArgumentParser
+except ImportError:
+    from vllm.utils.argparse_utils import FlexibleArgumentParser
 from PIL import Image
+try:
+    from vllm.utils.async_utils import merge_async_iterators
+except ModuleNotFoundError:
+    try:
+        from vllm.utils.asyncio import merge_async_iterators
+    except ModuleNotFoundError:
+        from vllm.utils import merge_async_iterators
+
 
 class LlmKwargs(dict):
 
     def __init__(self, args: argparse.Namespace) -> None:
         self.engine_args = EngineArgs.from_cli_args(args)
-        self.prompt = args.prompt if args.input_len == -1 else [
+        self.async_engine_args = AsyncEngineArgs.from_cli_args(args)
+        self.prompt = args.prompt if args.input_len is None else [
             0
         ] * args.input_len
         self.batch_size = args.batch_size
-        self.sampling_params = SamplingParams(temperature=args.temperature,
-                                              top_p=1,
-                                              max_tokens=args.max_tokens,
-                                              ignore_eos=args.ignore_eos)
-        self.rpd = args.rpd
-        try:
-            self.rpd_path = envs.VLLM_RPD_PROFILER_DIR
-        except:
-            self.rpd_path = None
-        if self.rpd_path is None:
-            self.rpd_path = args.rpd_path or os.path.join(
-                os.path.curdir, "trace.rpd")
+        self.sampling_params = SamplingParams(
+            temperature=args.temperature,
+            top_p=1,
+            max_tokens=args.max_tokens,
+            ignore_eos=args.ignore_eos,
+        )
         self.image_path = args.image_path
         self.serverlike = args.serverlike
-
-
-    def set_rpd(self, value: str):
-        self.rpd = value
-        if self.rpd and self.rpd_path is None:
-            self.rpd_path = os.path.join(os.path.curdir, "trace.rpd")
+        self.async_engine = args.async_engine
+        self.dataset_path = args.dataset_path
+        self.input_len = args.input_len
 
     def __setitem__(self, key: str, value: str) -> None:
-        self.engine_args = dataclasses.replace(self.engine_args, **{key: value})
+        self.engine_args = dataclasses.replace(self.engine_args,
+                                               **{key: value})
+        self.async_engine_args = dataclasses.replace(self.async_engine_args,
+                                                     **{key: value})
 
     def __str__(self) -> str:
         res = "\n === Engine Args === \n"
-        res += f"{self.engine_args}\n"
+        res += f"{self.async_engine_args if self.async_engine else self.engine_args}\n"
         res += "\n === Sampling params ===\n"
         res += f"{self.sampling_params}\n"
         res += "\n === Misc === \n"
         res += f"Prompt: {self.prompt}\n"
         res += f"Batch size: {self.batch_size}\n"
-        res += f"RPD: {self.rpd}: {self.rpd_path}\n"
         res += f"Image path: {self.image_path}\n"
         res += f"Serverlike: {self.serverlike}\n"
+        res += f"Async engine: {self.async_engine}\n"
+        res += f"Dataset path: {self.dataset_path}\n"
         return res
 
 
 def select_model(llm_kwargs: LlmKwargs):
     # Create a list of all the subfolders of a folder
     import os
+
     folder = "/models"
     folders = [f.path for f in os.scandir(folder) if f.is_dir()]
     subfolders = []
@@ -88,7 +94,8 @@ def select_max_tokens(llm_kwargs: LlmKwargs):
 
 
 def select_input_len(llm_kwargs: LlmKwargs):
-    llm_kwargs.prompt = [0] * int(input("Enter input length: "))
+    llm_kwargs.input_len = int(input("Enter input length: "))
+    llm_kwargs.prompt = [0] * llm_kwargs.input_len
 
 
 def select_temperature(llm_kwargs: LlmKwargs):
@@ -100,20 +107,16 @@ def select_ignore_eos(llm_kwargs: LlmKwargs):
     llm_kwargs.sampling_params.ignore_eos = [False, True][menu([False, True])]
 
 
-def select_rpd(llm_kwargs: LlmKwargs):
-    llm_kwargs.set_rpd([False, True][menu([False, True])])
-
-
-def select_rpd_path(llm_kwargs: LlmKwargs):
-    llm_kwargs.rpd_path = input("Enter RPD path: ")
-
-
 def select_image_path(llm_kwargs: LlmKwargs):
     llm_kwargs.image_path = input("Enter image path: ")
 
 
 def select_serverlike(llm_kwargs: LlmKwargs):
     llm_kwargs.serverlike = [False, True][menu([False, True])]
+
+
+def select_async_engine(llm_kwargs: LlmKwargs):
+    llm_kwargs.async_engine = [False, True][menu([False, True])]
 
 
 values = {
@@ -131,16 +134,16 @@ values = {
     "input_len": select_input_len,
     "temperature": select_temperature,
     "ignore_eos": select_ignore_eos,
-    "rpd": select_rpd,
-    "rpd_path": select_rpd_path,
     "image_path": select_image_path,
     "serverlike": select_serverlike,
-    "Done": None
+    "async_engine": select_async_engine,
+    "Done": None,
 }
 
 
 def menu(items):
     from simple_term_menu import TerminalMenu
+
     terminal_menu = TerminalMenu([str(x) for x in items])
     menu_entry_index = terminal_menu.show()
     if menu_entry_index is None:
@@ -160,102 +163,136 @@ def interactive(llm_kwargs: LlmKwargs):
             value(llm_kwargs)
         elif isinstance(value, list):
             new_value = type(value[0])(value[menu(value)])
-            if new_value == 'None':
+            if new_value == "None":
                 new_value = None
             llm_kwargs[key] = new_value
         print(llm_kwargs)
 
 
-def recreate_trace(llm_args: LlmKwargs):
-    from rocpd.schema import RocpdSchema
-    if envs.VLLM_RPD_PROFILER_DIR != llm_args.rpd_path:
-        envs.VLLM_RPD_PROFILER_DIR = llm_args.rpd_path
-    try:
-        os.remove(llm_args.rpd_path)
-    except FileNotFoundError:
-        pass
-    schema = RocpdSchema()
-    connection = sqlite3.connect(llm_args.rpd_path)
-    schema.writeSchema(connection)
-    connection.commit()
+async def run_async(
+    engine_args: AsyncEngineArgs,
+    sampling_params: SamplingParams,
+    prompts: PromptType,
+):
+    from vllm.entrypoints.openai.api_server import (
+        build_async_engine_client_from_engine_args, )
+
+    async with build_async_engine_client_from_engine_args(engine_args,
+                                                          False) as llm:
+        generators = []
+        for i, prompt in enumerate(prompts):
+            generator = llm.generate(prompt,
+                                     sampling_params,
+                                     request_id=f"test{i}")
+            generators.append(generator)
+        all_gens = merge_async_iterators(*generators)
+        async for i, res in all_gens:
+            for output in res.outputs:
+                if output.finish_reason or output.stop_reason:
+                    print("===========")
+                    print(f"Prompt: {res.prompt}")
+                    print(f"Generated: {output.text}")
 
 
-def main(args: argparse.Namespace):
-    if args.profile:
-        os.environ["VLLM_TORCH_PROFILER_DIR"] = args.profile_dir
+def make_prompts(llm_args: LlmKwargs):
+    if llm_args.dataset_path is not None:
+        with open(llm_args.dataset_path, encoding="utf-8") as f:
+            data = json.load(f)
+        data = [
+            entry for entry in data
+            if "conversations" in entry and len(entry["conversations"]) >= 2
+        ]
+        prompts = []
+        for entry in data:
+            if len(prompts) >= llm_args.batch_size:
+                break
+            prompt = entry["conversations"][0]["value"]
+            if llm_args.input_len and len(prompt) > llm_args.input_len:
+                prompt = prompt[:llm_args.input_len]
+            prompts.append(prompt)
+        return prompts
 
-    @contextmanager
-    def rpd_profiler_context():
-        from rpdTracerControl import rpdTracerControl as rpd
-        llm.start_profile()
-        yield
-        llm.stop_profile()
-        rpd.top_totals()
-
-    llm_args = LlmKwargs(args)
-    print(llm_args)
-    if args.interactive:
-        interactive(llm_args)
-
-    batch_size = llm_args.batch_size
-
-    if llm_args.rpd:
-        recreate_trace(llm_args)
-
-    llm = LLM(**dataclasses.asdict(llm_args.engine_args))
-
-    prompt_param = TokensPrompt(
-        prompt_token_ids=llm_args.prompt) if isinstance(
-            llm_args.prompt, list) else llm_args.prompt
-
+    prompt_param = (TokensPrompt(prompt_token_ids=llm_args.prompt)
+                    if isinstance(llm_args.prompt, list) else llm_args.prompt)
     if llm_args.image_path is not None:
         image = Image.open(llm_args.image_path).convert("RGB")
         prompt_param = {
             "prompt": "<|image|><|begin_of_text|>" + llm_args.prompt,
             "multi_modal_data": {
                 "image": image
-            }
+            },
         }
+    return [prompt_param] * llm_args.batch_size
+
+
+def main(args: argparse.Namespace):
+
+    llm_args = LlmKwargs(args)
+    if args.profile:
+        os.environ["VLLM_TORCH_PROFILER_DIR"] = args.profile_dir
+        llm_args.engine_args.profiler_config.profiler = "torch"
+        llm_args.engine_args.profiler_config.torch_profiler_dir = args.profile_dir
+        llm_args.engine_args.profiler_config.torch_profiler_with_stack = args.profile_with_stack
+
+    print(llm_args)
+    if args.interactive:
+        interactive(llm_args)
+
+    batch_size = llm_args.batch_size
+
+    prompts = make_prompts(llm_args)
 
     num_tokens = 0
     start_time = time.perf_counter()
     outs = []
-    with rpd_profiler_context() if args.rpd else nullcontext():
-        if llm_args.serverlike:
-            reqs = 0
-            llm._add_request(prompt_param, llm_args.sampling_params)
-            while llm.llm_engine.has_unfinished_requests():
-                step_outputs = llm.llm_engine.step()
-                if reqs < batch_size:
-                    llm._add_request(prompt_param, llm_args.sampling_params)
-                    reqs += 1
-                for step_output in step_outputs:
-                    if step_output.finished:
-                        text = step_output.outputs[0].text
-                        num_tokens += len(step_output.outputs[0].token_ids)
-                        if text:
-                            print(text)
-        else:
-            if args.profile:
-                llm.start_profile()
-            outs = llm.generate([prompt_param] * batch_size,
-                                sampling_params=llm_args.sampling_params)
-            if args.profile:
-                llm.stop_profile()
+
+    if llm_args.async_engine:
+        uvloop.run(
+            run_async(llm_args.async_engine_args, llm_args.sampling_params,
+                      prompts))
+    elif llm_args.serverlike:
+        llm = LLM(**dataclasses.asdict(llm_args.engine_args))
+        reqs = 0
+        llm._add_request(prompts[reqs], llm_args.sampling_params)
+        while llm.llm_engine.has_unfinished_requests():
+            step_outputs = llm.llm_engine.step()
+            if reqs < batch_size - 1:
+                reqs += 1
+                llm._add_request(prompts[reqs], llm_args.sampling_params)
+            for step_output in step_outputs:
+                if step_output.finished:
+                    text = step_output.outputs[0].text
+                    num_tokens += len(step_output.outputs[0].token_ids)
+                    if text:
+                        print(text)
+    else:
+        llm = LLM(**dataclasses.asdict(llm_args.engine_args))
+        if args.profile:
+            llm.start_profile()
+        outs = llm.generate(prompts, sampling_params=llm_args.sampling_params)
+        if args.profile:
+            llm.stop_profile()
     end_time = time.perf_counter()
     elapsed_time = end_time - start_time
 
     if not llm_args.serverlike:
         out_lengths = [len(x.token_ids) for out in outs for x in out.outputs]
         num_tokens = sum(out_lengths)
+        outputs_json = []
         for out in outs:
             print("===========")
-            text = out.outputs[0].text.replace('\n', ' ')
+            text = out.outputs[0].text.replace("\n", " ")
+            print(f"Prompt: {out.prompt}")
             print(f"Generated: {text}")
-            if args.output_json:
-                import json
-                with open(args.output_json, 'w') as f:
-                    json.dump({'generated': text}, f)
+            outputs_json.append({
+                "prompt": out.prompt,
+                "generated": text,
+            })
+        if args.output_json:
+            import json
+
+            with open(args.output_json, "w") as f:
+                json.dump({"results": outputs_json}, f)
 
     if args.extra_stats:
         print(
@@ -264,29 +301,30 @@ def main(args: argparse.Namespace):
 
 
 if __name__ == "__main__":
-    parser = FlexibleArgumentParser(description='LLM Test much')
-    parser.add_argument('-i',
-                        '--interactive',
-                        action='store_true',
-                        help='Interactive mode')
-    parser.add_argument('--prompt',
+    parser = FlexibleArgumentParser(description="LLM Test much")
+    parser.add_argument("-i",
+                        "--interactive",
+                        action="store_true",
+                        help="Interactive mode")
+    parser.add_argument("--prompt",
                         type=str,
                         default="There is a round table in the middle of the")
-    parser.add_argument('--input-len', type=int, default=-1)
-    parser.add_argument('--batch-size', type=int, default=1)
-    parser.add_argument('--max-tokens', type=int, default=256)
-    parser.add_argument('--rpd', action='store_true')
-    parser.add_argument('--temperature', type=float, default=0)
-    parser.add_argument('--ignore-eos', action='store_true')
-    parser.add_argument('--rpd-path', type=str, default=None)
-    parser.add_argument('--image-path', type=str, default=None)
-    parser.add_argument('--serverlike', action='store_true')
-    parser.add_argument('--extra-stats', action='store_true')
-    parser.add_argument('--output-json', type=str, default=None)
-    parser.add_argument('--profile', action='store_true')
-    parser.add_argument('--profile-dir', type=str, default='./vllm_profile')
+    parser.add_argument("--input-len", type=int, default=None)
+    parser.add_argument("--batch-size", type=int, default=1)
+    parser.add_argument("--max-tokens", type=int, default=256)
+    parser.add_argument("--temperature", type=float, default=0)
+    parser.add_argument("--ignore-eos", action="store_true")
+    parser.add_argument("--image-path", type=str, default=None)
+    parser.add_argument("--serverlike", action="store_true")
+    parser.add_argument("--async-engine", action="store_true")
+    parser.add_argument("--extra-stats", action="store_true")
+    parser.add_argument("--output-json", type=str, default=None)
+    parser.add_argument("--profile", action="store_true")
+    parser.add_argument("--profile-dir", type=str, default="./vllm_profile")
+    parser.add_argument("--profile-with-stack", action="store_true")
+    parser.add_argument("--dataset-path", type=str, default=None)
 
-    parser = EngineArgs.add_cli_args(parser)
+    parser = AsyncEngineArgs.add_cli_args(parser)
     args = parser.parse_args()
 
     main(args)

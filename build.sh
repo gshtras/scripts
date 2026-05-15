@@ -6,21 +6,6 @@ if [[ $(pwd) != *"vllm"* ]] ; then
     echo "Must be done in a vllm folder"
     exit 1
 fi
-gradlib=
-cython=
-
-while [[ $# -gt 0 ]] ; do
-  i=$1
-  case $i in
-  --gradlib)
-    gradlib=1
-  ;;
-  --cython)
-    cython=1
-  ;;
-  esac
-  shift
-done
 
 if command -v nvidia-smi ; then
     IS_CUDA=1
@@ -32,26 +17,20 @@ else
 fi
 
 prefix_arg=
-if [[ $(whoami) == "gshtrasb" ]] ; then
+if [[ $(whoami) != "root" ]] ; then
     prefix_arg=" --prefix ~/.local"
 fi
 if [[ $IS_ROCM == 1 ]] ; then
     if [[ -f requirements-rocm.txt ]] ; then
-        pip install -r requirements-rocm.txt
+        pip install -U -r requirements-rocm.txt
     elif [[ -f requirements/rocm.txt ]] ; then
-        pip install -r requirements/rocm.txt
+        pip install -U -r requirements/rocm.txt
     else
         echo "No requirements-rocm.txt found"
         exit 1
-    fi    
+    fi
+    pip install 'ray<2.45'
+    pip install 'setuptools<80'
+    pip install setuptools_scm
 fi
 python3 setup.py develop ${prefix_arg}
-if [[ $gradlib == 1 ]] ; then
-    cd gradlib
-    python3 setup.py develop ${prefix_arg}
-    cd ..
-fi
-
-if [[ $cython == 1 ]] ; then
-    python3 setup_cython.py build_ext --inplace
-fi
